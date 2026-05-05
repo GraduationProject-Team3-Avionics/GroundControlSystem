@@ -36,7 +36,7 @@ constexpr uint32_t HEARTBEAT_PERIOD_MS = 500;
 // Serial 출력이 너무 많으면 사용자 입력 처리가 체감상 밀립니다.
 // 명령 디버깅 중에는 IMU 출력은 끄는 것을 권장합니다.
 constexpr bool PRINT_IMU_TELEMETRY = false;
-constexpr bool PRINT_GNSS_TELEMETRY = true;
+constexpr bool PRINT_GNSS_TELEMETRY = false;
 constexpr bool PRINT_STATUS_TELEMETRY = true;
 
 // ------------------------------
@@ -68,13 +68,17 @@ enum class CommandId : uint8_t
   Arm    = 0x10,
   Disarm = 0x11,
 
-  SetHover    = 0x20,
-  SetAltHold  = 0x21,
-  SetOffboard = 0x22,
+  SetHover    = 0x12,
+  SetAltHold  = 0x13,
+  SetOffboard = 0x14,
 
-  EmergencyHover  = 0x80,
-  EmergencyLand   = 0x81,
-  EmergencyDisarm = 0x82
+  EmergencyHover  = 0x20,
+  EmergencyLand   = 0x21,
+  EmergencyDisarm = 0x22,
+
+  // Bench motor PWM command.
+  // param1 = PWM pulse width in microseconds.
+  MotorTest = 0x30
 };
 
 enum class ArmState : uint8_t
@@ -329,6 +333,7 @@ const char* commandIdToString(CommandId id)
     case CommandId::EmergencyHover: return "EmergencyHover";
     case CommandId::EmergencyLand: return "EmergencyLand";
     case CommandId::EmergencyDisarm: return "EmergencyDisarm";
+    case CommandId::MotorTest: return "MotorTest";
     default: return "None";
   }
 }
@@ -373,6 +378,7 @@ void printHelp()
   Serial.println("ehover    : emergency hover, burst TX");
   Serial.println("eland     : emergency land, burst TX");
   Serial.println("edisarm   : emergency disarm, burst TX");
+  Serial.println("1000~2000 : set all motor PWM in us, requires armed state");
   Serial.println("==================================");
   Serial.println();
   UnlockSerial();
@@ -648,6 +654,41 @@ void handleRxPacket(const uint8_t* payload)
   }
 }
 
+bool isDecimalNumber(const String& input)
+{
+  if (input.length() == 0)
+  {
+    return false;
+  }
+
+  for (uint16_t i = 0; i < input.length(); ++i)
+  {
+    const char c = input.charAt(i);
+
+    if ((c < '0') || (c > '9'))
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+int clampMotorPwm(int pwm)
+{
+  if (pwm < 1000)
+  {
+    return 1000;
+  }
+
+  if (pwm > 2000)
+  {
+    return 2000;
+  }
+
+  return pwm;
+}
+
 void parseSerialLine(const char* line)
 {
   if (line == nullptr)
@@ -670,6 +711,22 @@ void parseSerialLine(const char* line)
   {
     printHelp();
     return;
+  }
+  else if (isDecimalNumber(input))
+  {
+    const int pwm = clampMotorPwm(input.toInt());
+
+    queued = enqueueCommand(CommandId::MotorTest,
+                            15,
+                            15,
+                            true,
+                            true,
+                            static_cast<int16_t>(pwm));
+
+    LockSerial();
+    Serial.print("[CMD] MotorTest pwm=");
+    Serial.println(pwm);
+    UnlockSerial();
   }
   else if (input == "hb")
   {
