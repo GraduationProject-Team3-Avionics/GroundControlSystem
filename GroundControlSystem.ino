@@ -32,11 +32,15 @@ constexpr unsigned long SERIAL_BAUD = 115200;
 
 constexpr uint8_t PACKET_SIZE = 32;
 constexpr uint32_t HEARTBEAT_PERIOD_MS = 500;
+// STM32 FC MotorTest maps param1~param4 to M1~M4 individually.
+constexpr bool SEND_INDIVIDUAL_MOTOR_PWM = true;
 
 // Serial 출력이 너무 많으면 사용자 입력 처리가 체감상 밀립니다.
 // 명령 디버깅 중에는 IMU 출력은 끄는 것을 권장합니다.
 constexpr bool PRINT_IMU_TELEMETRY = false;
+// constexpr bool PRINT_IMU_TELEMETRY = true;
 constexpr bool PRINT_GNSS_TELEMETRY = false;
+// constexpr bool PRINT_GNSS_TELEMETRY = true;
 constexpr bool PRINT_STATUS_TELEMETRY = true;
 
 // ------------------------------
@@ -77,7 +81,7 @@ enum class CommandId : uint8_t
   EmergencyDisarm = 0x22,
 
   // Bench motor PWM command.
-  // param1 = PWM pulse width in microseconds.
+  // param1~param4 = M1~M4 PWM pulse width in microseconds.
   MotorTest = 0x30
 };
 
@@ -378,7 +382,7 @@ void printHelp()
   Serial.println("ehover    : emergency hover, burst TX");
   Serial.println("eland     : emergency land, burst TX");
   Serial.println("edisarm   : emergency disarm, burst TX");
-  Serial.println("1000~2000 : set all motor PWM in us, requires armed state");
+  Serial.println("1000~2000 : set motor PWM in us, requires armed state");
   Serial.println("==================================");
   Serial.println();
   UnlockSerial();
@@ -714,19 +718,53 @@ void parseSerialLine(const char* line)
   }
   else if (isDecimalNumber(input))
   {
-    const int pwm = clampMotorPwm(input.toInt());
+    const int basePwm = clampMotorPwm(input.toInt());
 
-    queued = enqueueCommand(CommandId::MotorTest,
-                            15,
-                            15,
-                            true,
-                            true,
-                            static_cast<int16_t>(pwm));
+    if (SEND_INDIVIDUAL_MOTOR_PWM)
+    {
+      const int m1 = clampMotorPwm(basePwm + 50);
+      const int m2 = clampMotorPwm(basePwm);
+      const int m3 = clampMotorPwm(basePwm);
+      const int m4 = clampMotorPwm(basePwm - 50);
 
-    LockSerial();
-    Serial.print("[CMD] MotorTest pwm=");
-    Serial.println(pwm);
-    UnlockSerial();
+      queued = enqueueCommand(CommandId::MotorTest,
+                              15,
+                              15,
+                              true,
+                              true,
+                              static_cast<int16_t>(m1),
+                              static_cast<int16_t>(m2),
+                              static_cast<int16_t>(m3),
+                              static_cast<int16_t>(m4));
+
+      LockSerial();
+      Serial.print("[CMD] MotorTest base=");
+      Serial.print(basePwm);
+      Serial.print(" M1=");
+      Serial.print(m1);
+      Serial.print(" M2=");
+      Serial.print(m2);
+      Serial.print(" M3=");
+      Serial.print(m3);
+      Serial.print(" M4=");
+      Serial.println(m4);
+      UnlockSerial();
+    }
+    else
+    {
+      queued = enqueueCommand(CommandId::MotorTest,
+                              15,
+                              15,
+                              true,
+                              true,
+                              static_cast<int16_t>(basePwm));
+
+      LockSerial();
+      Serial.print("[CMD] MotorTest pwm=");
+      Serial.print(basePwm);
+      Serial.println(" all motors");
+      UnlockSerial();
+    }
   }
   else if (input == "hb")
   {
