@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <RF24.h>
+#include <math.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -32,6 +33,18 @@ constexpr unsigned long SERIAL_BAUD = 115200;
 
 constexpr uint8_t PACKET_SIZE = 32;
 constexpr uint32_t HEARTBEAT_PERIOD_MS = 500;
+
+// Command burst timing intentionally avoids 20 ms because STM32 FC
+// sends IMU telemetry at 50 Hz, which can phase-lock with 20 ms GCS repeats.
+constexpr uint8_t COMMAND_BURST_REPEAT = 30;
+constexpr uint16_t COMMAND_BURST_GAP_MS = 17;
+
+constexpr uint8_t EMERGENCY_BURST_REPEAT = 40;
+constexpr uint16_t EMERGENCY_BURST_GAP_MS = 11;
+
+constexpr uint8_t MOTOR_TEST_BURST_REPEAT = 30;
+constexpr uint16_t MOTOR_TEST_BURST_GAP_MS = 17;
+
 // STM32 FC MotorTest maps param1~param4 to M1~M4 individually.
 constexpr bool SEND_INDIVIDUAL_MOTOR_PWM = true;
 
@@ -82,7 +95,11 @@ enum class CommandId : uint8_t
 
   // Bench motor PWM command.
   // param1~param4 = M1~M4 PWM pulse width in microseconds.
-  MotorTest = 0x30
+  MotorTest = 0x30,
+
+  // FC uses this only while armed and in Hover/EmergencyHover mode.
+  // param1 = base throttle PWM pulse width in microseconds.
+  SetBaseThrottle = 0x31
 };
 
 enum class ArmState : uint8_t
@@ -324,6 +341,61 @@ float unscaleAltitudeM(int16_t value)
   return static_cast<float>(value) / 100.0f;
 }
 
+float clampUnit(float value)
+{
+  if (value > 1.0f)
+  {
+    return 1.0f;
+  }
+
+  if (value < -1.0f)
+  {
+    return -1.0f;
+  }
+
+  return value;
+}
+
+void quaternionToEulerDeg(float qw, float qx, float qy, float qz,
+                          float* rollDeg, float* pitchDeg, float* yawDeg)
+{
+  if ((rollDeg == nullptr) || (pitchDeg == nullptr) || (yawDeg == nullptr))
+  {
+    return;
+  }
+
+  *rollDeg = 0.0f;
+  *pitchDeg = 0.0f;
+  *yawDeg = 0.0f;
+
+  const float norm = sqrtf((qw * qw) + (qx * qx) + (qy * qy) + (qz * qz));
+
+  if (norm <= 1.0e-6f)
+  {
+    return;
+  }
+
+  qw /= norm;
+  qx /= norm;
+  qy /= norm;
+  qz /= norm;
+
+  const float rollRad = atan2f(2.0f * ((qw * qx) + (qy * qz)),
+                               1.0f - (2.0f * ((qx * qx) + (qy * qy))));
+
+  const float pitchSin = clampUnit(2.0f * ((qw * qy) - (qz * qx)));
+  const float pitchRad = asinf(pitchSin);
+
+  const float yawRad = atan2f(2.0f * ((qw * qz) + (qx * qy)),
+                              1.0f - (2.0f * ((qy * qy) + (qz * qz))));
+
+  constexpr float RAD_TO_DEG_LOCAL = 57.2957795131f;
+
+  *rollDeg = rollRad * RAD_TO_DEG_LOCAL;
+  *pitchDeg = pitchRad * RAD_TO_DEG_LOCAL;
+  *yawDeg = yawRad * RAD_TO_DEG_LOCAL;
+}
+
 const char* commandIdToString(CommandId id)
 {
   switch (id)
@@ -338,6 +410,7 @@ const char* commandIdToString(CommandId id)
     case CommandId::EmergencyLand: return "EmergencyLand";
     case CommandId::EmergencyDisarm: return "EmergencyDisarm";
     case CommandId::MotorTest: return "MotorTest";
+    case CommandId::SetBaseThrottle: return "SetBaseThrottle";
     default: return "None";
   }
 }
@@ -382,7 +455,10 @@ void printHelp()
   Serial.println("ehover    : emergency hover, burst TX");
   Serial.println("eland     : emergency land, burst TX");
   Serial.println("edisarm   : emergency disarm, burst TX");
-  Serial.println("1000~2000 : set motor PWM in us, requires armed state");
+  Serial.println("1000~2000 : set FC base throttle, requires arm + hover");
+  Serial.println("pwm N     : same as numeric base throttle command");
+  Serial.println("mt N      : direct MotorTest PWM, requires armed state");
+  Serial.println("motor N   : same as mt N");
   Serial.println("==================================");
   Serial.println();
   UnlockSerial();
@@ -487,37 +563,31 @@ void printImuPacket(const uint8_t* payload)
 
   const auto* packet = reinterpret_cast<const ImuTelemetryPacket*>(payload);
 
+  float rollDeg = 0.0f;
+  float pitchDeg = 0.0f;
+  float yawDeg = 0.0f;
+
+  quaternionToEulerDeg(
+    unscaleQuaternion(packet->qw),
+    unscaleQuaternion(packet->qx),
+    unscaleQuaternion(packet->qy),
+    unscaleQuaternion(packet->qz),
+    &rollDeg,
+    &pitchDeg,
+    &yawDeg);
+
   LockSerial();
   Serial.print("[IMU] seq=");
   Serial.print(packet->sequence);
   Serial.print(" t=");
   Serial.print(static_cast<uint32_t>(packet->timeMs10) * 10UL);
 
-  Serial.print(" q=(");
-  Serial.print(unscaleQuaternion(packet->qw), 4);
-  Serial.print(", ");
-  Serial.print(unscaleQuaternion(packet->qx), 4);
-  Serial.print(", ");
-  Serial.print(unscaleQuaternion(packet->qy), 4);
-  Serial.print(", ");
-  Serial.print(unscaleQuaternion(packet->qz), 4);
-  Serial.print(")");
-
-  Serial.print(" gyro[dps]=(");
-  Serial.print(unscaleGyroDps(packet->gxDps10), 1);
-  Serial.print(", ");
-  Serial.print(unscaleGyroDps(packet->gyDps10), 1);
-  Serial.print(", ");
-  Serial.print(unscaleGyroDps(packet->gzDps10), 1);
-  Serial.print(")");
-
-  Serial.print(" acc[g]=(");
-  Serial.print(unscaleAccelG(packet->axMg), 3);
-  Serial.print(", ");
-  Serial.print(unscaleAccelG(packet->ayMg), 3);
-  Serial.print(", ");
-  Serial.print(unscaleAccelG(packet->azMg), 3);
-  Serial.print(")");
+  Serial.print(" euler[deg] roll=");
+  Serial.print(rollDeg, 2);
+  Serial.print(" pitch=");
+  Serial.print(pitchDeg, 2);
+  Serial.print(" yaw=");
+  Serial.print(yawDeg, 2);
 
   Serial.print(" alt=");
   Serial.print(unscaleAltitudeM(packet->relativeAltCm), 2);
@@ -693,6 +763,87 @@ int clampMotorPwm(int pwm)
   return pwm;
 }
 
+bool parseCommandValue(const String& input, const char* prefix, int* value)
+{
+  if ((prefix == nullptr) || (value == nullptr))
+  {
+    return false;
+  }
+
+  String prefixString(prefix);
+  String remainder;
+
+  if (input == prefixString)
+  {
+    return false;
+  }
+
+  if (input.startsWith(prefixString + " "))
+  {
+    remainder = input.substring(prefixString.length() + 1);
+  }
+  else if (input.startsWith(prefixString + "="))
+  {
+    remainder = input.substring(prefixString.length() + 1);
+  }
+  else
+  {
+    return false;
+  }
+
+  remainder.trim();
+  if (!isDecimalNumber(remainder))
+  {
+    return false;
+  }
+
+  *value = clampMotorPwm(remainder.toInt());
+  return true;
+}
+
+bool enqueueBaseThrottleCommand(int pwm)
+{
+  return enqueueCommand(CommandId::SetBaseThrottle,
+                        COMMAND_BURST_REPEAT,
+                        COMMAND_BURST_GAP_MS,
+                        true,
+                        true,
+                        static_cast<int16_t>(clampMotorPwm(pwm)));
+}
+
+bool enqueueMotorTestCommand(int basePwm)
+{
+  const int clampedBasePwm = clampMotorPwm(basePwm);
+
+  if (SEND_INDIVIDUAL_MOTOR_PWM)
+  {
+    const int m1 = clampMotorPwm(clampedBasePwm + 50);
+    const int m2 = clampMotorPwm(clampedBasePwm);
+    const int m3 = clampMotorPwm(clampedBasePwm);
+    const int m4 = clampMotorPwm(clampedBasePwm - 50);
+
+    return enqueueCommand(CommandId::MotorTest,
+                          MOTOR_TEST_BURST_REPEAT,
+                          MOTOR_TEST_BURST_GAP_MS,
+                          true,
+                          true,
+                          static_cast<int16_t>(m1),
+                          static_cast<int16_t>(m2),
+                          static_cast<int16_t>(m3),
+                          static_cast<int16_t>(m4));
+  }
+
+  return enqueueCommand(CommandId::MotorTest,
+                        MOTOR_TEST_BURST_REPEAT,
+                        MOTOR_TEST_BURST_GAP_MS,
+                        true,
+                        true,
+                        static_cast<int16_t>(clampedBasePwm),
+                        static_cast<int16_t>(clampedBasePwm),
+                        static_cast<int16_t>(clampedBasePwm),
+                        static_cast<int16_t>(clampedBasePwm));
+}
+
 void parseSerialLine(const char* line)
 {
   if (line == nullptr)
@@ -710,6 +861,7 @@ void parseSerialLine(const char* line)
   }
 
   bool queued = true;
+  int parsedPwm = 0;
 
   if (input == "help")
   {
@@ -720,51 +872,31 @@ void parseSerialLine(const char* line)
   {
     const int basePwm = clampMotorPwm(input.toInt());
 
-    if (SEND_INDIVIDUAL_MOTOR_PWM)
-    {
-      const int m1 = clampMotorPwm(basePwm + 50);
-      const int m2 = clampMotorPwm(basePwm);
-      const int m3 = clampMotorPwm(basePwm);
-      const int m4 = clampMotorPwm(basePwm - 50);
+    queued = enqueueBaseThrottleCommand(basePwm);
 
-      queued = enqueueCommand(CommandId::MotorTest,
-                              15,
-                              15,
-                              true,
-                              true,
-                              static_cast<int16_t>(m1),
-                              static_cast<int16_t>(m2),
-                              static_cast<int16_t>(m3),
-                              static_cast<int16_t>(m4));
+    LockSerial();
+    Serial.print("[CMD] SetBaseThrottle pwm=");
+    Serial.println(basePwm);
+    UnlockSerial();
+  }
+  else if (parseCommandValue(input, "pwm", &parsedPwm))
+  {
+    queued = enqueueBaseThrottleCommand(parsedPwm);
 
-      LockSerial();
-      Serial.print("[CMD] MotorTest base=");
-      Serial.print(basePwm);
-      Serial.print(" M1=");
-      Serial.print(m1);
-      Serial.print(" M2=");
-      Serial.print(m2);
-      Serial.print(" M3=");
-      Serial.print(m3);
-      Serial.print(" M4=");
-      Serial.println(m4);
-      UnlockSerial();
-    }
-    else
-    {
-      queued = enqueueCommand(CommandId::MotorTest,
-                              15,
-                              15,
-                              true,
-                              true,
-                              static_cast<int16_t>(basePwm));
+    LockSerial();
+    Serial.print("[CMD] SetBaseThrottle pwm=");
+    Serial.println(parsedPwm);
+    UnlockSerial();
+  }
+  else if (parseCommandValue(input, "mt", &parsedPwm) ||
+           parseCommandValue(input, "motor", &parsedPwm))
+  {
+    queued = enqueueMotorTestCommand(parsedPwm);
 
-      LockSerial();
-      Serial.print("[CMD] MotorTest pwm=");
-      Serial.print(basePwm);
-      Serial.println(" all motors");
-      UnlockSerial();
-    }
+    LockSerial();
+    Serial.print("[CMD] MotorTest base=");
+    Serial.println(parsedPwm);
+    UnlockSerial();
   }
   else if (input == "hb")
   {
@@ -772,35 +904,35 @@ void parseSerialLine(const char* line)
   }
   else if (input == "arm")
   {
-    queued = enqueueCommand(CommandId::Arm, 20, 20, true, true);
+    queued = enqueueCommand(CommandId::Arm, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
   }
   else if (input == "disarm")
   {
-    queued = enqueueCommand(CommandId::Disarm, 25, 15, true, true);
+    queued = enqueueCommand(CommandId::Disarm, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
   }
   else if (input == "hover")
   {
-    queued = enqueueCommand(CommandId::SetHover, 20, 20, true, true);
+    queued = enqueueCommand(CommandId::SetHover, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
   }
   else if (input == "althold")
   {
-    queued = enqueueCommand(CommandId::SetAltHold, 15, 20, true, true);
+    queued = enqueueCommand(CommandId::SetAltHold, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
   }
   else if (input == "offboard")
   {
-    queued = enqueueCommand(CommandId::SetOffboard, 15, 20, true, true);
+    queued = enqueueCommand(CommandId::SetOffboard, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
   }
   else if (input == "ehover")
   {
-    queued = enqueueCommand(CommandId::EmergencyHover, 25, 15, true, true);
+    queued = enqueueCommand(CommandId::EmergencyHover, EMERGENCY_BURST_REPEAT, EMERGENCY_BURST_GAP_MS, true, true);
   }
   else if (input == "eland")
   {
-    queued = enqueueCommand(CommandId::EmergencyLand, 25, 15, true, true);
+    queued = enqueueCommand(CommandId::EmergencyLand, EMERGENCY_BURST_REPEAT, EMERGENCY_BURST_GAP_MS, true, true);
   }
   else if (input == "edisarm")
   {
-    queued = enqueueCommand(CommandId::EmergencyDisarm, 40, 10, true, true);
+    queued = enqueueCommand(CommandId::EmergencyDisarm, EMERGENCY_BURST_REPEAT, EMERGENCY_BURST_GAP_MS, true, true);
   }
   else
   {
