@@ -50,8 +50,9 @@ constexpr bool SEND_INDIVIDUAL_MOTOR_PWM = true;
 
 // Serial 출력이 너무 많으면 사용자 입력 처리가 체감상 밀립니다.
 // 명령 디버깅 중에는 IMU 출력은 끄는 것을 권장합니다.
-constexpr bool PRINT_IMU_TELEMETRY = false;
-// constexpr bool PRINT_IMU_TELEMETRY = true;
+// Required by the localhost attitude indicator. The web UI suppresses these
+// lines from Recent Activity and uses them only for roll/pitch/yaw rendering.
+constexpr bool PRINT_IMU_TELEMETRY = true;
 constexpr bool PRINT_GNSS_TELEMETRY = false;
 // constexpr bool PRINT_GNSS_TELEMETRY = true;
 constexpr bool PRINT_STATUS_TELEMETRY = true;

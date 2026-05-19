@@ -1,0 +1,340 @@
+:root {
+  color-scheme: dark;
+  --bg: #101318;
+  --panel: #171c24;
+  --panel-strong: #1f2630;
+  --text: #eef3f8;
+  --muted: #97a4b3;
+  --border: #303946;
+  --accent: #2fbf8f;
+  --danger: #ef5b5b;
+  --button: #263241;
+  --button-hover: #314052;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+button,
+input,
+select {
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--button);
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--button-hover);
+}
+
+input,
+select {
+  padding: 0 10px;
+}
+
+.shell {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 24px 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.topbar p {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.connection {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#portSelect {
+  min-width: 130px;
+}
+
+#baudInput {
+  width: 112px;
+}
+
+.grid {
+  display: grid;
+  grid-template-areas:
+    "commands attitude"
+    "activity attitude";
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.panel {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 16px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.commandPanel {
+  grid-area: commands;
+}
+
+.attitudePanel {
+  grid-area: attitude;
+  display: flex;
+  min-height: 640px;
+  flex-direction: column;
+}
+
+.statusPill {
+  min-width: 82px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.statusPill[data-live="true"] {
+  border-color: rgba(47, 191, 143, 0.45);
+  color: var(--accent);
+}
+
+.attitudeCanvasWrap {
+  position: relative;
+  flex: 1;
+  min-height: 470px;
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #080b0f;
+}
+
+#attitudeCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.attitudeReadout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.attitudeReadout div {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-strong);
+  padding: 10px 12px;
+}
+
+.attitudeReadout span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.attitudeReadout strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.buttonGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.buttonGrid button {
+  width: 100%;
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 13px;
+}
+
+.buttonGrid button[data-command^="e"],
+.buttonGrid button[data-command="disarm"] {
+  border-color: rgba(239, 91, 91, 0.55);
+}
+
+.commandRow {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.commandRow:has(#pwmInput) {
+  grid-template-columns: 72px 1fr auto auto;
+}
+
+label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.message {
+  min-height: 20px;
+  margin-top: 14px;
+  color: var(--muted);
+}
+
+.message[data-kind="ok"] {
+  color: var(--accent);
+}
+
+.message[data-kind="error"] {
+  color: var(--danger);
+}
+
+.logPanel {
+  grid-area: activity;
+  display: flex;
+  min-height: 280px;
+  flex-direction: column;
+}
+
+#logOutput {
+  flex: 0 0 auto;
+  min-height: 0;
+  height: 218px;
+  margin: 14px 0 0;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #0b0e12;
+  padding: 12px;
+  color: #dce7f3;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+body[data-connected="false"] .buttonGrid button,
+body[data-connected="false"] #sendPwmButton,
+body[data-connected="false"] #sendMotorButton,
+body[data-connected="false"] #customCommandForm button,
+body[data-connected="false"] #disconnectButton {
+  opacity: 0.45;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .connection {
+    justify-content: flex-start;
+  }
+
+  .grid {
+    grid-template-areas:
+      "attitude"
+      "commands"
+      "activity";
+    grid-template-columns: 1fr;
+  }
+
+  .attitudePanel {
+    min-height: 560px;
+  }
+
+  .attitudeCanvasWrap {
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 560px) {
+  .shell {
+    width: min(100vw - 20px, 1180px);
+    padding: 14px 0;
+  }
+
+  .buttonGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .commandRow,
+  .commandRow:has(#pwmInput) {
+    grid-template-columns: 1fr;
+  }
+
+  .connection > * {
+    width: 100%;
+  }
+
+  .attitudePanel {
+    min-height: 480px;
+  }
+
+  .attitudeCanvasWrap {
+    min-height: 320px;
+  }
+
+  .attitudeReadout {
+    grid-template-columns: 1fr;
+  }
+}
