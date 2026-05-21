@@ -13,7 +13,9 @@ const customCommandInput = document.querySelector("#customCommandInput");
 const logOutput = document.querySelector("#logOutput");
 const clearLogButton = document.querySelector("#clearLogButton");
 const attitudeCanvas = document.querySelector("#attitudeCanvas");
+const headingCanvas = document.querySelector("#headingCanvas");
 const attitudeStatus = document.querySelector("#attitudeStatus");
+const headingValue = document.querySelector("#headingValue");
 const rollValue = document.querySelector("#rollValue");
 const pitchValue = document.querySelector("#pitchValue");
 const yawValue = document.querySelector("#yawValue");
@@ -23,6 +25,7 @@ let hiddenLogCount = 0;
 let statusEvents = null;
 const MAX_VISIBLE_LOGS = 12;
 const attitudeIndicator = new AttitudeIndicator(attitudeCanvas);
+const headingIndicator = new HeadingIndicator(headingCanvas);
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -63,16 +66,23 @@ function renderLogs(logs) {
 
 function renderAttitude(attitude) {
   attitudeIndicator.setTarget(attitude);
+  headingIndicator.setTarget(attitude);
   const valid = Boolean(attitude && attitude.valid);
   const roll = valid ? Number(attitude.roll) : 0;
   const pitch = valid ? Number(attitude.pitch) : 0;
   const yaw = valid ? Number(attitude.yaw) : 0;
+  const heading = normalizeDegrees(yaw);
 
   attitudeStatus.textContent = valid ? "IMU Live" : "No IMU";
   attitudeStatus.dataset.live = valid ? "true" : "false";
+  headingValue.textContent = valid ? `${heading.toFixed(2)} deg` : "--- deg";
   rollValue.textContent = `${roll.toFixed(1)} deg`;
   pitchValue.textContent = `${pitch.toFixed(1)} deg`;
   yawValue.textContent = `${yaw.toFixed(1)} deg`;
+}
+
+function normalizeDegrees(value) {
+  return ((value % 360) + 360) % 360;
 }
 
 async function refreshPorts() {

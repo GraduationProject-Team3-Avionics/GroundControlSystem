@@ -152,11 +152,20 @@ h2 {
   color: var(--accent);
 }
 
+.instrumentGrid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(360px, 1fr) minmax(220px, 280px);
+  align-items: stretch;
+  gap: 14px;
+  min-height: 0;
+  margin-top: 14px;
+}
+
 .attitudeCanvasWrap {
   position: relative;
-  flex: 1;
+  height: 100%;
   min-height: 470px;
-  margin-top: 14px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -164,6 +173,48 @@ h2 {
 }
 
 #attitudeCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.headingInstrument {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.headingHeader {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.headingHeader span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.headingHeader strong {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.headingCanvasWrap {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #bebebb;
+  aspect-ratio: 1 / 1;
+}
+
+#headingCanvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -302,8 +353,23 @@ body[data-connected="false"] #disconnectButton {
     min-height: 560px;
   }
 
+  .instrumentGrid {
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 260px);
+  }
+
   .attitudeCanvasWrap {
     min-height: 400px;
+  }
+}
+
+@media (max-width: 720px) {
+  .instrumentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .headingInstrument {
+    width: min(100%, 320px);
+    justify-self: center;
   }
 }
 

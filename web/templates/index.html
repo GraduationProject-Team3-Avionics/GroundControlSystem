@@ -58,8 +58,19 @@
             <h2>Attitude</h2>
             <span id="attitudeStatus" class="statusPill">No IMU</span>
           </div>
-          <div class="attitudeCanvasWrap">
-            <canvas id="attitudeCanvas" aria-label="Artificial horizon attitude indicator"></canvas>
+          <div class="instrumentGrid">
+            <div class="attitudeCanvasWrap">
+              <canvas id="attitudeCanvas" aria-label="Artificial horizon attitude indicator"></canvas>
+            </div>
+            <div class="headingInstrument">
+              <div class="headingHeader">
+                <span>Heading</span>
+                <strong id="headingValue">000 deg</strong>
+              </div>
+              <div class="headingCanvasWrap">
+                <canvas id="headingCanvas" aria-label="Heading indicator compass"></canvas>
+              </div>
+            </div>
           </div>
           <div class="attitudeReadout">
             <div>
