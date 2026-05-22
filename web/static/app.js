@@ -12,6 +12,7 @@ const customCommandForm = document.querySelector("#customCommandForm");
 const customCommandInput = document.querySelector("#customCommandInput");
 const logOutput = document.querySelector("#logOutput");
 const clearLogButton = document.querySelector("#clearLogButton");
+const themeToggleButton = document.querySelector("#themeToggleButton");
 const attitudeCanvas = document.querySelector("#attitudeCanvas");
 const headingCanvas = document.querySelector("#headingCanvas");
 const attitudeStatus = document.querySelector("#attitudeStatus");
@@ -24,6 +25,7 @@ let visibleLogs = [];
 let hiddenLogCount = 0;
 let statusEvents = null;
 const MAX_VISIBLE_LOGS = 12;
+const THEME_STORAGE_KEY = "gcs-theme";
 const attitudeIndicator = new AttitudeIndicator(attitudeCanvas);
 const headingIndicator = new HeadingIndicator(headingCanvas);
 
@@ -50,6 +52,21 @@ function setConnectedUi(status) {
     ? `Connected: ${status.port} @ ${status.baud}`
     : "Disconnected";
   document.body.dataset.connected = connected ? "true" : "false";
+}
+
+function applyTheme(theme) {
+  const normalizedTheme = theme === "light" ? "light" : "dark";
+  document.documentElement.dataset.theme = normalizedTheme;
+  themeToggleButton.title = normalizedTheme === "light" ? "Switch to dark mode" : "Switch to light mode";
+  themeToggleButton.setAttribute("aria-checked", normalizedTheme === "dark" ? "true" : "false");
+}
+
+function saveTheme(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (error) {
+    // Theme persistence is optional; the UI can still switch for the current page.
+  }
 }
 
 function renderLogs(logs) {
@@ -234,6 +251,12 @@ clearLogButton.addEventListener("click", () => {
   logOutput.textContent = "";
 });
 
+themeToggleButton.addEventListener("click", () => {
+  const nextTheme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  applyTheme(nextTheme);
+  saveTheme(nextTheme);
+});
+
 async function boot() {
   try {
     await refreshPorts();
@@ -244,4 +267,5 @@ async function boot() {
   }
 }
 
+applyTheme(document.documentElement.dataset.theme);
 boot();

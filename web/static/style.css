@@ -10,6 +10,28 @@
   --danger: #ef5b5b;
   --button: #263241;
   --button-hover: #314052;
+  --log-bg: #0b0e12;
+  --log-text: #dce7f3;
+  --canvas-shell-bg: #080b0f;
+  --heading-shell-bg: #bebebb;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3f6f8;
+  --panel: #ffffff;
+  --panel-strong: #eef3f7;
+  --text: #17212b;
+  --muted: #5f6c7a;
+  --border: #cbd5df;
+  --accent: #087a61;
+  --danger: #c93636;
+  --button: #f7f9fb;
+  --button-hover: #e7edf3;
+  --log-bg: #f9fbfd;
+  --log-text: #25313d;
+  --canvas-shell-bg: #111820;
+  --heading-shell-bg: #d7d7d2;
 }
 
 * {
@@ -92,6 +114,52 @@ h2 {
   gap: 8px;
 }
 
+.themeSwitch {
+  display: inline-flex;
+  width: 54px;
+  min-width: 54px;
+  padding: 0 8px;
+  align-items: center;
+  justify-content: flex-start;
+  border-color: var(--border);
+  border-radius: 8px;
+  background: var(--panel-strong);
+}
+
+.themeSwitch:hover {
+  background: var(--button-hover);
+}
+
+.themeSwitchKnob {
+  position: relative;
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background: #5f86d7;
+  transition: background-color 160ms ease;
+}
+
+.themeSwitchKnob::after {
+  position: absolute;
+  top: 3px;
+  left: 15px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #17212b;
+  content: "";
+  transition: left 160ms ease, background-color 160ms ease;
+}
+
+:root[data-theme="light"] .themeSwitchKnob {
+  background: #c7d2df;
+}
+
+:root[data-theme="light"] .themeSwitchKnob::after {
+  left: 3px;
+  background: #ffffff;
+}
+
 #portSelect {
   min-width: 130px;
 }
@@ -169,7 +237,7 @@ h2 {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #080b0f;
+  background: var(--canvas-shell-bg);
 }
 
 #attitudeCanvas {
@@ -210,7 +278,7 @@ h2 {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #bebebb;
+  background: var(--heading-shell-bg);
   aspect-ratio: 1 / 1;
 }
 
@@ -314,9 +382,9 @@ label {
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #0b0e12;
+  background: var(--log-bg);
   padding: 12px;
-  color: #dce7f3;
+  color: var(--log-text);
   font-family: Consolas, "Courier New", monospace;
   font-size: 13px;
   line-height: 1.45;

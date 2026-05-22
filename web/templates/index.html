@@ -4,6 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ground Control System</title>
+    <script>
+      (() => {
+        try {
+          const theme = localStorage.getItem("gcs-theme");
+          document.documentElement.dataset.theme = theme === "light" ? "light" : "dark";
+        } catch (error) {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
@@ -14,6 +24,9 @@
           <p id="connectionText">Disconnected</p>
         </div>
         <div class="connection">
+          <button id="themeToggleButton" class="themeSwitch" type="button" role="switch" aria-label="Dark mode" aria-checked="true">
+            <span class="themeSwitchKnob" aria-hidden="true"></span>
+          </button>
           <select id="portSelect" aria-label="Serial port"></select>
           <input id="baudInput" type="number" min="9600" step="1" value="115200" aria-label="Baud rate">
           <button id="refreshPortsButton" type="button">Refresh</button>
