@@ -85,20 +85,6 @@
               </div>
             </div>
           </div>
-          <div class="attitudeReadout">
-            <div>
-              <span>Roll</span>
-              <strong id="rollValue">0.0 deg</strong>
-            </div>
-            <div>
-              <span>Pitch</span>
-              <strong id="pitchValue">0.0 deg</strong>
-            </div>
-            <div>
-              <span>Yaw</span>
-              <strong id="yawValue">0.0 deg</strong>
-            </div>
-          </div>
         </section>
 
         <section class="panel logPanel">
@@ -109,9 +95,60 @@
           <pre id="logOutput"></pre>
         </section>
       </section>
+
+      <section class="panel telemetryPanel">
+        <div class="panelHeader">
+          <h2>Attitude Plots</h2>
+          <div class="plotControls" aria-label="Attitude plot controls">
+            <label class="plotToggle">
+              <input type="checkbox" data-plot-toggle="roll" checked>
+              <span>Roll</span>
+            </label>
+            <label class="plotToggle">
+              <input type="checkbox" data-plot-toggle="pitch" checked>
+              <span>Pitch</span>
+            </label>
+            <label class="plotToggle">
+              <input type="checkbox" data-plot-toggle="yaw" checked>
+              <span>Yaw</span>
+            </label>
+            <span class="plotWindow">Last 30 s</span>
+          </div>
+        </div>
+        <div class="plotGrid">
+          <article class="plotCard" data-plot-card="roll">
+            <div class="plotHeader">
+              <span>Roll</span>
+              <strong id="rollPlotValue">0.00 deg</strong>
+            </div>
+            <div class="plotCanvasWrap">
+              <canvas id="rollPlotCanvas" aria-label="Realtime roll plot"></canvas>
+            </div>
+          </article>
+          <article class="plotCard" data-plot-card="pitch">
+            <div class="plotHeader">
+              <span>Pitch</span>
+              <strong id="pitchPlotValue">0.00 deg</strong>
+            </div>
+            <div class="plotCanvasWrap">
+              <canvas id="pitchPlotCanvas" aria-label="Realtime pitch plot"></canvas>
+            </div>
+          </article>
+          <article class="plotCard" data-plot-card="yaw">
+            <div class="plotHeader">
+              <span>Yaw</span>
+              <strong id="yawPlotValue">0.00 deg</strong>
+            </div>
+            <div class="plotCanvasWrap">
+              <canvas id="yawPlotCanvas" aria-label="Realtime yaw plot"></canvas>
+            </div>
+          </article>
+        </div>
+      </section>
     </main>
 
     <script src="/static/attitude.js"></script>
+    <script src="/static/plot.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>

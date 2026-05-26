@@ -14,6 +14,13 @@
   --log-text: #dce7f3;
   --canvas-shell-bg: #080b0f;
   --heading-shell-bg: #bebebb;
+  --plot-bg: rgba(8, 12, 16, 0.68);
+  --plot-grid: rgba(151, 164, 179, 0.16);
+  --plot-axis: rgba(151, 164, 179, 0.38);
+  --plot-zero: rgba(47, 191, 143, 0.42);
+  --plot-roll: #ff8f6b;
+  --plot-pitch: #42a5ff;
+  --plot-yaw: #ffd166;
 }
 
 :root[data-theme="light"] {
@@ -32,6 +39,13 @@
   --log-text: #25313d;
   --canvas-shell-bg: #111820;
   --heading-shell-bg: #d7d7d2;
+  --plot-bg: #f9fbfd;
+  --plot-grid: rgba(95, 108, 122, 0.18);
+  --plot-axis: rgba(95, 108, 122, 0.42);
+  --plot-zero: rgba(8, 122, 97, 0.42);
+  --plot-roll: #c95f38;
+  --plot-pitch: #126eae;
+  --plot-yaw: #9b6b00;
 }
 
 * {
@@ -72,7 +86,7 @@ select {
 }
 
 .shell {
-  width: min(1180px, calc(100vw - 32px));
+  width: min(1680px, calc(100vw - 40px));
   margin: 0 auto;
   padding: 24px 0;
 }
@@ -173,7 +187,7 @@ h2 {
   grid-template-areas:
     "commands attitude"
     "activity attitude";
-  grid-template-columns: 420px minmax(0, 1fr);
+  grid-template-columns: minmax(410px, 460px) minmax(0, 1fr);
   gap: 16px;
   margin-top: 18px;
 }
@@ -200,7 +214,6 @@ h2 {
 .attitudePanel {
   grid-area: attitude;
   display: flex;
-  min-height: 640px;
   flex-direction: column;
 }
 
@@ -223,8 +236,8 @@ h2 {
 .instrumentGrid {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(360px, 1fr) minmax(220px, 280px);
-  align-items: stretch;
+  grid-template-columns: minmax(420px, 1fr) minmax(240px, 320px);
+  align-items: start;
   gap: 14px;
   min-height: 0;
   margin-top: 14px;
@@ -232,12 +245,13 @@ h2 {
 
 .attitudeCanvasWrap {
   position: relative;
-  height: 100%;
-  min-height: 470px;
+  width: 100%;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--canvas-shell-bg);
+  aspect-ratio: 4 / 3;
 }
 
 #attitudeCanvas {
@@ -286,35 +300,6 @@ h2 {
   display: block;
   width: 100%;
   height: 100%;
-}
-
-.attitudeReadout {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.attitudeReadout div {
-  min-width: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--panel-strong);
-  padding: 10px 12px;
-}
-
-.attitudeReadout span {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.attitudeReadout strong {
-  display: block;
-  margin-top: 4px;
-  color: var(--text);
-  font-size: 20px;
-  font-weight: 700;
 }
 
 .buttonGrid {
@@ -374,6 +359,106 @@ label {
   flex-direction: column;
 }
 
+.telemetryPanel {
+  margin-top: 16px;
+}
+
+.plotControls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.plotToggle {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  padding: 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.plotToggle:has(input:checked) {
+  border-color: rgba(47, 191, 143, 0.45);
+  color: var(--text);
+}
+
+.plotToggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.plotWindow {
+  min-width: 76px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.plotGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.plotCard {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-strong);
+  padding: 12px;
+}
+
+.plotCard[hidden] {
+  display: none;
+}
+
+.plotHeader {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plotHeader span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.plotHeader strong {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.plotCanvasWrap {
+  margin-top: 8px;
+  min-height: 220px;
+  aspect-ratio: 2.15 / 1;
+}
+
+.plotCanvasWrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 #logOutput {
   flex: 0 0 auto;
   min-height: 0;
@@ -422,11 +507,15 @@ body[data-connected="false"] #disconnectButton {
   }
 
   .instrumentGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(210px, 260px);
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
+  }
+
+  .plotGrid {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   }
 
   .attitudeCanvasWrap {
-    min-height: 400px;
+    min-height: 360px;
   }
 }
 
@@ -443,7 +532,7 @@ body[data-connected="false"] #disconnectButton {
 
 @media (max-width: 560px) {
   .shell {
-    width: min(100vw - 20px, 1180px);
+    width: min(100vw - 20px, 1680px);
     padding: 14px 0;
   }
 
@@ -468,7 +557,4 @@ body[data-connected="false"] #disconnectButton {
     min-height: 320px;
   }
 
-  .attitudeReadout {
-    grid-template-columns: 1fr;
-  }
 }

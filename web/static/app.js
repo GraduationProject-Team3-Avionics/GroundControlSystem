@@ -17,17 +17,28 @@ const attitudeCanvas = document.querySelector("#attitudeCanvas");
 const headingCanvas = document.querySelector("#headingCanvas");
 const attitudeStatus = document.querySelector("#attitudeStatus");
 const headingValue = document.querySelector("#headingValue");
-const rollValue = document.querySelector("#rollValue");
-const pitchValue = document.querySelector("#pitchValue");
-const yawValue = document.querySelector("#yawValue");
+const rollPlotValue = document.querySelector("#rollPlotValue");
+const pitchPlotValue = document.querySelector("#pitchPlotValue");
+const yawPlotValue = document.querySelector("#yawPlotValue");
+const rollPlotCanvas = document.querySelector("#rollPlotCanvas");
+const pitchPlotCanvas = document.querySelector("#pitchPlotCanvas");
+const yawPlotCanvas = document.querySelector("#yawPlotCanvas");
 
 let visibleLogs = [];
 let hiddenLogCount = 0;
 let statusEvents = null;
+let lastPlottedAttitudeAt = null;
 const MAX_VISIBLE_LOGS = 12;
 const THEME_STORAGE_KEY = "gcs-theme";
+const PLOT_VISIBILITY_STORAGE_KEY = "gcs-plot-visibility";
 const attitudeIndicator = new AttitudeIndicator(attitudeCanvas);
 const headingIndicator = new HeadingIndicator(headingCanvas);
+const attitudePlots = {
+  roll: new RealtimeLinePlot(rollPlotCanvas, { label: "roll", unit: "deg", colorVar: "--plot-roll" }),
+  pitch: new RealtimeLinePlot(pitchPlotCanvas, { label: "pitch", unit: "deg", colorVar: "--plot-pitch" }),
+  yaw: new RealtimeLinePlot(yawPlotCanvas, { label: "yaw", unit: "deg", colorVar: "--plot-yaw" }),
+};
+const plotToggleInputs = document.querySelectorAll("[data-plot-toggle]");
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -69,6 +80,60 @@ function saveTheme(theme) {
   }
 }
 
+function loadPlotVisibility() {
+  try {
+    return JSON.parse(localStorage.getItem(PLOT_VISIBILITY_STORAGE_KEY) || "{}");
+  } catch (error) {
+    return {};
+  }
+}
+
+function savePlotVisibility() {
+  const visibility = {};
+  plotToggleInputs.forEach((input) => {
+    visibility[input.dataset.plotToggle] = input.checked;
+  });
+
+  try {
+    localStorage.setItem(PLOT_VISIBILITY_STORAGE_KEY, JSON.stringify(visibility));
+  } catch (error) {
+    // Plot visibility persistence is optional.
+  }
+}
+
+function setPlotVisibility(name, visible, persist = true) {
+  const card = document.querySelector(`[data-plot-card="${name}"]`);
+  const input = document.querySelector(`[data-plot-toggle="${name}"]`);
+
+  if (card) {
+    card.hidden = !visible;
+  }
+  if (input) {
+    input.checked = visible;
+  }
+  if (visible && attitudePlots[name]) {
+    requestAnimationFrame(() => attitudePlots[name].resize());
+  }
+  if (persist) {
+    savePlotVisibility();
+  }
+}
+
+function bindPlotToggles() {
+  const storedVisibility = loadPlotVisibility();
+  plotToggleInputs.forEach((input) => {
+    const name = input.dataset.plotToggle;
+    const visible = Object.prototype.hasOwnProperty.call(storedVisibility, name)
+      ? Boolean(storedVisibility[name])
+      : input.checked;
+
+    setPlotVisibility(name, visible, false);
+    input.addEventListener("change", () => {
+      setPlotVisibility(name, input.checked);
+    });
+  });
+}
+
 function renderLogs(logs) {
   if (hiddenLogCount > logs.length) {
     hiddenLogCount = logs.length;
@@ -93,9 +158,20 @@ function renderAttitude(attitude) {
   attitudeStatus.textContent = valid ? "IMU Live" : "No IMU";
   attitudeStatus.dataset.live = valid ? "true" : "false";
   headingValue.textContent = valid ? `${heading.toFixed(2)} deg` : "--- deg";
-  rollValue.textContent = `${roll.toFixed(1)} deg`;
-  pitchValue.textContent = `${pitch.toFixed(1)} deg`;
-  yawValue.textContent = `${yaw.toFixed(1)} deg`;
+  rollPlotValue.textContent = `${roll.toFixed(2)} deg`;
+  pitchPlotValue.textContent = `${pitch.toFixed(2)} deg`;
+  yawPlotValue.textContent = `${yaw.toFixed(2)} deg`;
+
+  if (valid) {
+    const updatedAt = Number(attitude.updated_at);
+    const sampleTime = Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : Date.now() / 1000;
+    if (lastPlottedAttitudeAt !== sampleTime) {
+      lastPlottedAttitudeAt = sampleTime;
+      attitudePlots.roll.addSample(sampleTime, roll);
+      attitudePlots.pitch.addSample(sampleTime, pitch);
+      attitudePlots.yaw.addSample(sampleTime, yaw);
+    }
+  }
 }
 
 function normalizeDegrees(value) {
@@ -255,6 +331,7 @@ themeToggleButton.addEventListener("click", () => {
   const nextTheme = document.documentElement.dataset.theme === "light" ? "dark" : "light";
   applyTheme(nextTheme);
   saveTheme(nextTheme);
+  Object.values(attitudePlots).forEach((plot) => plot.scheduleDraw());
 });
 
 async function boot() {
@@ -268,4 +345,5 @@ async function boot() {
 }
 
 applyTheme(document.documentElement.dataset.theme);
+bindPlotToggles();
 boot();
