@@ -57,8 +57,13 @@ class AltitudeTape {
     const pixelsPerMeter = compact ? 8 : 15;
     const minorStep = 1;
     const majorStep = 5;
-    const markerSpace = width >= 180 ? 74 : 48;
-    const tickEnd = Math.max(88, width - markerSpace);
+    const markerValue = this.target.valid ? this.target.meters : null;
+    const markerLabel = this.formatValue(markerValue);
+    const markerFont = "750 13px Segoe UI, Arial, sans-serif";
+    ctx.font = markerFont;
+    const markerLabelWidth = ctx.measureText(markerLabel).width;
+    const markerSpace = width >= 180 ? Math.min(width - 64, Math.max(74, markerLabelWidth + 58)) : 48;
+    const tickEnd = Math.max(width >= 180 ? 64 : 88, width - markerSpace);
     const majorStart = Math.max(44, tickEnd - Math.min(82, width * 0.4));
     const minorStart = Math.min(tickEnd - 16, Math.max(majorStart + 24, tickEnd - 46));
     const labelX = majorStart - 10;
@@ -85,7 +90,8 @@ class AltitudeTape {
       width,
       centerY,
       tickEnd,
-      value: this.target.valid ? this.target.meters : null,
+      label: markerLabel,
+      font: markerFont,
     });
 
   }
@@ -147,14 +153,15 @@ class AltitudeTape {
   }
 
   drawMarker(ctx, layout) {
-    const { width, centerY, tickEnd, value } = layout;
+    const { width, centerY, tickEnd, label, font } = layout;
     const markerColor = this.css("--altitude-marker", "#126e8d");
     const markerStroke = this.css("--altitude-marker-stroke", "#06151d");
     const textColor = this.css("--altitude-marker-text", "#eaf8ff");
     const tipX = tickEnd + 8;
     const sideValue = width >= 180;
     const baseX = Math.min(width - (sideValue ? 48 : 10), tipX + 30);
-    const textX = sideValue ? Math.min(width - 2, baseX + 8) : width / 2;
+    const textX = sideValue ? width - 8 : width / 2;
+    const textMaxWidth = sideValue ? Math.max(32, width - baseX - 16) : Math.max(32, width - 16);
 
     ctx.save();
     ctx.strokeStyle = markerColor;
@@ -176,10 +183,10 @@ class AltitudeTape {
     ctx.stroke();
 
     ctx.fillStyle = textColor;
-    ctx.font = "750 13px Segoe UI, Arial, sans-serif";
-    ctx.textAlign = sideValue ? "left" : "center";
+    ctx.font = font;
+    ctx.textAlign = sideValue ? "right" : "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(this.formatValue(value), textX, sideValue ? centerY : centerY + 42);
+    ctx.fillText(label, textX, sideValue ? centerY : centerY + 42, textMaxWidth);
     ctx.restore();
   }
 
@@ -188,11 +195,7 @@ class AltitudeTape {
       return "--- m";
     }
 
-    const absolute = Math.abs(value);
-    if (absolute >= 100) {
-      return `${value.toFixed(0)} m`;
-    }
-    return `${value.toFixed(1)} m`;
+    return `${value.toFixed(2)} m`;
   }
 
   css(name, fallback) {
