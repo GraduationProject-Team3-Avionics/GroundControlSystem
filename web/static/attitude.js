@@ -54,21 +54,29 @@ class AttitudeIndicator {
     const ctx = this.ctx;
     const w = this.width;
     const h = this.height;
-    const cx = w / 2;
-    const cy = h / 2 + 10;
-    const radius = Math.min(w, h) * 0.42;
+    const inset = 6;
+    const viewport = {
+      x: inset,
+      y: inset,
+      width: w - inset * 2,
+      height: h - inset * 2,
+      radius: 18,
+    };
+    const cx = viewport.x + viewport.width / 2;
+    const cy = viewport.y + viewport.height / 2;
+    const radius = Math.min(viewport.width, viewport.height) / 2;
 
     ctx.clearRect(0, 0, w, h);
     this.drawPanelBackground(ctx, w, h);
 
     ctx.save();
-    this.roundRectPath(ctx, cx - radius, cy - radius, radius * 2, radius * 2, 18);
+    this.roundRectPath(ctx, viewport.x, viewport.y, viewport.width, viewport.height, viewport.radius);
     ctx.clip();
     this.drawHorizon(ctx, cx, cy, radius);
     this.drawPitchLadder(ctx, cx, cy, radius);
     ctx.restore();
 
-    this.drawBezel(ctx, cx, cy, radius);
+    this.drawBezel(ctx, viewport);
     this.drawRollScale(ctx, cx, cy, radius);
     this.drawAircraftSymbol(ctx, cx, cy, radius);
     this.drawStatus(ctx, w, h);
@@ -155,16 +163,23 @@ class AttitudeIndicator {
     ctx.restore();
   }
 
-  drawBezel(ctx, cx, cy, radius) {
+  drawBezel(ctx, viewport) {
     ctx.save();
     ctx.strokeStyle = "#0b0d10";
     ctx.lineWidth = 10;
-    this.roundRectPath(ctx, cx - radius, cy - radius, radius * 2, radius * 2, 18);
+    this.roundRectPath(ctx, viewport.x, viewport.y, viewport.width, viewport.height, viewport.radius);
     ctx.stroke();
 
     ctx.strokeStyle = "rgba(255,255,255,0.24)";
     ctx.lineWidth = 1;
-    this.roundRectPath(ctx, cx - radius + 5, cy - radius + 5, radius * 2 - 10, radius * 2 - 10, 14);
+    this.roundRectPath(
+      ctx,
+      viewport.x + 5,
+      viewport.y + 5,
+      viewport.width - 10,
+      viewport.height - 10,
+      Math.max(0, viewport.radius - 4)
+    );
     ctx.stroke();
     ctx.restore();
   }
