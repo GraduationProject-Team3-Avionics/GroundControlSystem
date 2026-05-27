@@ -76,8 +76,8 @@ class AttitudeIndicator {
 
   drawPanelBackground(ctx, w, h) {
     const gradient = ctx.createLinearGradient(0, 0, 0, h);
-    gradient.addColorStop(0, "#111820");
-    gradient.addColorStop(1, "#090c10");
+    gradient.addColorStop(0, this.css("--attitude-shell-bg-start", "#111820"));
+    gradient.addColorStop(1, this.css("--attitude-shell-bg-end", "#090c10"));
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, w, h);
   }
@@ -259,12 +259,17 @@ class AttitudeIndicator {
       return;
     }
 
-    ctx.fillStyle = "rgba(8, 12, 16, 0.62)";
+    ctx.fillStyle = this.css("--attitude-status-overlay", "rgba(8, 12, 16, 0.62)");
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = "#97a4b3";
+    ctx.fillStyle = this.css("--muted", "#97a4b3");
     ctx.font = "600 15px Segoe UI, Arial, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("Waiting for IMU attitude", w / 2, h / 2);
+  }
+
+  css(name, fallback) {
+    const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return value || fallback;
   }
 
   roundRectPath(ctx, x, y, width, height, radius) {

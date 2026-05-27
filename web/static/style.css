@@ -13,6 +13,9 @@
   --log-bg: #0b0e12;
   --log-text: #dce7f3;
   --canvas-shell-bg: #080b0f;
+  --attitude-shell-bg-start: #111820;
+  --attitude-shell-bg-end: #090c10;
+  --attitude-status-overlay: rgba(8, 12, 16, 0.62);
   --heading-shell-bg: #bebebb;
   --plot-bg: rgba(8, 12, 16, 0.68);
   --plot-grid: rgba(151, 164, 179, 0.16);
@@ -37,7 +40,10 @@
   --button-hover: #e7edf3;
   --log-bg: #f9fbfd;
   --log-text: #25313d;
-  --canvas-shell-bg: #111820;
+  --canvas-shell-bg: #eef3f7;
+  --attitude-shell-bg-start: #f9fbfd;
+  --attitude-shell-bg-end: #e7edf3;
+  --attitude-status-overlay: rgba(249, 251, 253, 0.72);
   --heading-shell-bg: #d7d7d2;
   --plot-bg: #f9fbfd;
   --plot-grid: rgba(95, 108, 122, 0.18);
