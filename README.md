@@ -14,7 +14,7 @@ Korean documentation is available in [README_ko.md](README_ko.md).
 | --- | --- |
 | Altitude | Shows the current altitude as a vertical tape. Values are displayed in meters. |
 | Top connection bar | Switches theme, selects the COM port, sets the baud rate, refreshes ports, and connects or disconnects. |
-| Commands | Sends common commands such as Heartbeat, Arm, Disarm, Hover, and Alt Hold. |
+| Commands | Sends common commands such as Heartbeat, Arm, Disarm, Hover, Alt Hold, and Land. |
 | PWM / Motor Test | Sends `pwm N` and `mt N` commands using the entered PWM value. |
 | Custom | Sends a typed command directly. Examples: `help`, `pwm 1200` |
 | Attitude | Displays IMU roll, pitch, and yaw using an artificial horizon and heading indicator. |
@@ -79,6 +79,7 @@ python server.py
 | Hover | `hover` |
 | Alt Hold | `althold` |
 | Offboard | `offboard` |
+| Land | Gradually sends `pwm N` from the current PWM value down to `1350` |
 | Emergency Hover | `ehover` |
 | Emergency Land | `eland` |
 | Emergency Disarm | `edisarm` |

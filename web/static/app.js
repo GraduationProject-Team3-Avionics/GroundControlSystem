@@ -8,6 +8,7 @@ const messageText = document.querySelector("#messageText");
 const pwmInput = document.querySelector("#pwmInput");
 const sendPwmButton = document.querySelector("#sendPwmButton");
 const sendMotorButton = document.querySelector("#sendMotorButton");
+const landButton = document.querySelector("#landButton");
 const customCommandForm = document.querySelector("#customCommandForm");
 const customCommandInput = document.querySelector("#customCommandInput");
 const logOutput = document.querySelector("#logOutput");
@@ -29,7 +30,12 @@ let visibleLogs = [];
 let hiddenLogCount = 0;
 let statusEvents = null;
 let lastPlottedAttitudeAt = null;
+let landingRunId = 0;
+let landingActive = false;
 const MAX_VISIBLE_LOGS = 12;
+const LAND_TARGET_PWM = 1350;
+const LAND_STEP_PWM = 10;
+const LAND_STEP_INTERVAL_MS = 700;
 const THEME_STORAGE_KEY = "gcs-theme";
 const PLOT_VISIBILITY_STORAGE_KEY = "gcs-plot-visibility";
 const altitudeTape = new AltitudeTape(altitudeCanvas);
@@ -57,6 +63,12 @@ async function api(path, options = {}) {
 function setMessage(text, kind = "") {
   messageText.textContent = text;
   messageText.dataset.kind = kind;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function setConnectedUi(status) {
@@ -184,6 +196,36 @@ function normalizeDegrees(value) {
   return ((value % 360) + 360) % 360;
 }
 
+function readPwmInput() {
+  const rawValue = Number(pwmInput.value);
+  if (!Number.isFinite(rawValue)) {
+    throw new Error("PWM must be a number");
+  }
+
+  const min = Number(pwmInput.min || 1000);
+  const max = Number(pwmInput.max || 2000);
+  const pwm = Math.round(rawValue);
+  if (pwm < min || pwm > max) {
+    throw new Error(`PWM must be between ${min} and ${max}`);
+  }
+
+  return pwm;
+}
+
+function setLandingActive(active) {
+  landingActive = active;
+  landButton.disabled = active;
+}
+
+function cancelLandingSequence() {
+  if (!landingActive) {
+    return;
+  }
+
+  landingRunId += 1;
+  setLandingActive(false);
+}
+
 async function refreshPorts() {
   const selected = portSelect.value;
   const payload = await api("/api/ports");
@@ -253,19 +295,80 @@ async function connectSerial() {
 }
 
 async function disconnectSerial() {
+  cancelLandingSequence();
   const payload = await api("/api/disconnect", { method: "POST", body: "{}" });
   setConnectedUi(payload.status);
   setMessage("Disconnected", "ok");
 }
 
-async function sendCommand(command) {
-  setMessage("");
+async function postCommand(command) {
   await api("/api/command", {
     method: "POST",
     body: JSON.stringify({ command }),
   });
+}
+
+async function sendCommand(command) {
+  cancelLandingSequence();
+  setMessage("");
+  await postCommand(command);
   setMessage(`Sent: ${command}`, "ok");
   await refreshStatus();
+}
+
+async function sendPwmValue(pwm) {
+  await postCommand(`pwm ${pwm}`);
+  pwmInput.value = String(pwm);
+}
+
+async function runLandingSequence() {
+  cancelLandingSequence();
+
+  if (document.body.dataset.connected !== "true") {
+    throw new Error("Serial port is not connected");
+  }
+
+  const startPwm = readPwmInput();
+  if (startPwm <= LAND_TARGET_PWM) {
+    setMessage(`Land target already reached: ${startPwm} PWM`, "ok");
+    return;
+  }
+
+  const runId = landingRunId + 1;
+  landingRunId = runId;
+  setLandingActive(true);
+  setMessage(`Landing: ${startPwm} -> ${LAND_TARGET_PWM} PWM`, "ok");
+
+  try {
+    const values = [];
+    for (let pwm = startPwm; pwm > LAND_TARGET_PWM; pwm -= LAND_STEP_PWM) {
+      values.push(pwm);
+    }
+    if (values[values.length - 1] !== LAND_TARGET_PWM) {
+      values.push(LAND_TARGET_PWM);
+    }
+
+    for (let index = 0; index < values.length; index += 1) {
+      if (runId !== landingRunId) {
+        return;
+      }
+
+      const pwm = values[index];
+      await sendPwmValue(pwm);
+      setMessage(`Landing: pwm ${pwm}`, "ok");
+
+      if (index < values.length - 1) {
+        await delay(LAND_STEP_INTERVAL_MS);
+      }
+    }
+
+    setMessage(`Landing complete: pwm ${LAND_TARGET_PWM}`, "ok");
+    await refreshStatus();
+  } finally {
+    if (runId === landingRunId) {
+      setLandingActive(false);
+    }
+  }
 }
 
 document.querySelectorAll("[data-command]").forEach((button) => {
@@ -304,7 +407,7 @@ disconnectButton.addEventListener("click", async () => {
 
 sendPwmButton.addEventListener("click", async () => {
   try {
-    await sendCommand(`pwm ${pwmInput.value}`);
+    await sendCommand(`pwm ${readPwmInput()}`);
   } catch (error) {
     setMessage(error.message, "error");
   }
@@ -312,8 +415,17 @@ sendPwmButton.addEventListener("click", async () => {
 
 sendMotorButton.addEventListener("click", async () => {
   try {
-    await sendCommand(`mt ${pwmInput.value}`);
+    await sendCommand(`mt ${readPwmInput()}`);
   } catch (error) {
+    setMessage(error.message, "error");
+  }
+});
+
+landButton.addEventListener("click", async () => {
+  try {
+    await runLandingSequence();
+  } catch (error) {
+    setLandingActive(false);
     setMessage(error.message, "error");
   }
 });
