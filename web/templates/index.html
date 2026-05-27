@@ -17,136 +17,146 @@
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
-    <main class="shell">
-      <header class="topbar">
-        <div>
-          <h1>Ground Control System</h1>
-          <p id="connectionText">Disconnected</p>
+    <div class="appLayout">
+      <aside class="altitudeSidebar" aria-label="Altitude">
+        <h2>Altitude</h2>
+        <div class="altitudeCanvasWrap">
+          <canvas id="altitudeCanvas" aria-label="Altitude tape indicator"></canvas>
         </div>
-        <div class="connection">
-          <button id="themeToggleButton" class="themeSwitch" type="button" role="switch" aria-label="Dark mode" aria-checked="true">
-            <span class="themeSwitchKnob" aria-hidden="true"></span>
-          </button>
-          <select id="portSelect" aria-label="Serial port"></select>
-          <input id="baudInput" type="number" min="9600" step="1" value="115200" aria-label="Baud rate">
-          <button id="refreshPortsButton" type="button">Refresh</button>
-          <button id="connectButton" type="button">Connect</button>
-          <button id="disconnectButton" type="button">Disconnect</button>
-        </div>
-      </header>
+      </aside>
 
-      <section class="grid">
-        <section class="panel commandPanel">
-          <h2>Commands</h2>
-          <div class="buttonGrid">
-            <button data-command="hb" type="button">Heartbeat</button>
-            <button data-command="arm" type="button">Arm</button>
-            <button data-command="disarm" type="button">Disarm</button>
-            <button data-command="hover" type="button">Hover</button>
-            <button data-command="althold" type="button">Alt Hold</button>
-            <button data-command="offboard" type="button">Offboard</button>
-            <button data-command="ehover" type="button">Emergency Hover</button>
-            <button data-command="eland" type="button">Emergency Land</button>
-            <button data-command="edisarm" type="button">Emergency Disarm</button>
+      <main class="shell">
+        <header class="topbar">
+          <div>
+            <h1>Ground Control System</h1>
+            <p id="connectionText">Disconnected</p>
           </div>
-
-          <div class="commandRow">
-            <label for="pwmInput">PWM</label>
-            <input id="pwmInput" type="number" min="1000" max="2000" value="1200">
-            <button id="sendPwmButton" type="button">Send PWM</button>
-            <button id="sendMotorButton" type="button">Motor Test</button>
+          <div class="connection">
+            <button id="themeToggleButton" class="themeSwitch" type="button" role="switch" aria-label="Dark mode" aria-checked="true">
+              <span class="themeSwitchKnob" aria-hidden="true"></span>
+            </button>
+            <select id="portSelect" aria-label="Serial port"></select>
+            <input id="baudInput" type="number" min="9600" step="1" value="115200" aria-label="Baud rate">
+            <button id="refreshPortsButton" type="button">Refresh</button>
+            <button id="connectButton" type="button">Connect</button>
+            <button id="disconnectButton" type="button">Disconnect</button>
           </div>
+        </header>
 
-          <form id="customCommandForm" class="commandRow">
-            <label for="customCommandInput">Custom</label>
-            <input id="customCommandInput" type="text" placeholder="help, pwm 1200, mt 1100">
-            <button type="submit">Send</button>
-          </form>
-
-          <p id="messageText" class="message"></p>
-        </section>
-
-        <section class="panel attitudePanel">
-          <div class="panelHeader">
-            <h2>Attitude</h2>
-            <span id="attitudeStatus" class="statusPill">No IMU</span>
-          </div>
-          <div class="instrumentGrid">
-            <div class="attitudeCanvasWrap">
-              <canvas id="attitudeCanvas" aria-label="Artificial horizon attitude indicator"></canvas>
+        <section class="grid">
+          <section class="panel commandPanel">
+            <h2>Commands</h2>
+            <div class="buttonGrid">
+              <button data-command="hb" type="button">Heartbeat</button>
+              <button data-command="arm" type="button">Arm</button>
+              <button data-command="disarm" type="button">Disarm</button>
+              <button data-command="hover" type="button">Hover</button>
+              <button data-command="althold" type="button">Alt Hold</button>
+              <button data-command="offboard" type="button">Offboard</button>
+              <button data-command="ehover" type="button">Emergency Hover</button>
+              <button data-command="eland" type="button">Emergency Land</button>
+              <button data-command="edisarm" type="button">Emergency Disarm</button>
             </div>
-            <div class="headingInstrument">
-              <div class="headingHeader">
-                <span>Heading</span>
-                <strong id="headingValue">000 deg</strong>
+
+            <div class="commandRow">
+              <label for="pwmInput">PWM</label>
+              <input id="pwmInput" type="number" min="1000" max="2000" value="1200">
+              <button id="sendPwmButton" type="button">Send PWM</button>
+              <button id="sendMotorButton" type="button">Motor Test</button>
+            </div>
+
+            <form id="customCommandForm" class="commandRow">
+              <label for="customCommandInput">Custom</label>
+              <input id="customCommandInput" type="text" placeholder="help, pwm 1200, mt 1100">
+              <button type="submit">Send</button>
+            </form>
+
+            <p id="messageText" class="message"></p>
+          </section>
+
+          <section class="panel attitudePanel">
+            <div class="panelHeader">
+              <h2>Attitude</h2>
+              <span id="attitudeStatus" class="statusPill">No IMU</span>
+            </div>
+            <div class="instrumentGrid">
+              <div class="attitudeCanvasWrap">
+                <canvas id="attitudeCanvas" aria-label="Artificial horizon attitude indicator"></canvas>
               </div>
-              <div class="headingCanvasWrap">
-                <canvas id="headingCanvas" aria-label="Heading indicator compass"></canvas>
+              <div class="headingInstrument">
+                <div class="headingHeader">
+                  <span>Heading</span>
+                  <strong id="headingValue">000 deg</strong>
+                </div>
+                <div class="headingCanvasWrap">
+                  <canvas id="headingCanvas" aria-label="Heading indicator compass"></canvas>
+                </div>
               </div>
             </div>
-          </div>
+          </section>
+
+          <section class="panel logPanel">
+            <div class="panelHeader">
+              <h2>Recent Activity</h2>
+              <button id="clearLogButton" type="button">Clear View</button>
+            </div>
+            <pre id="logOutput"></pre>
+          </section>
         </section>
 
-        <section class="panel logPanel">
+        <section class="panel telemetryPanel">
           <div class="panelHeader">
-            <h2>Recent Activity</h2>
-            <button id="clearLogButton" type="button">Clear View</button>
+            <h2>Attitude Plots</h2>
+            <div class="plotControls" aria-label="Attitude plot controls">
+              <label class="plotToggle">
+                <input type="checkbox" data-plot-toggle="roll" checked>
+                <span>Roll</span>
+              </label>
+              <label class="plotToggle">
+                <input type="checkbox" data-plot-toggle="pitch" checked>
+                <span>Pitch</span>
+              </label>
+              <label class="plotToggle">
+                <input type="checkbox" data-plot-toggle="yaw" checked>
+                <span>Yaw</span>
+              </label>
+              <span class="plotWindow">Last 30 s</span>
+            </div>
           </div>
-          <pre id="logOutput"></pre>
+          <div class="plotGrid">
+            <article class="plotCard" data-plot-card="roll">
+              <div class="plotHeader">
+                <span>Roll</span>
+                <strong id="rollPlotValue">0.00 deg</strong>
+              </div>
+              <div class="plotCanvasWrap">
+                <canvas id="rollPlotCanvas" aria-label="Realtime roll plot"></canvas>
+              </div>
+            </article>
+            <article class="plotCard" data-plot-card="pitch">
+              <div class="plotHeader">
+                <span>Pitch</span>
+                <strong id="pitchPlotValue">0.00 deg</strong>
+              </div>
+              <div class="plotCanvasWrap">
+                <canvas id="pitchPlotCanvas" aria-label="Realtime pitch plot"></canvas>
+              </div>
+            </article>
+            <article class="plotCard" data-plot-card="yaw">
+              <div class="plotHeader">
+                <span>Yaw</span>
+                <strong id="yawPlotValue">0.00 deg</strong>
+              </div>
+              <div class="plotCanvasWrap">
+                <canvas id="yawPlotCanvas" aria-label="Realtime yaw plot"></canvas>
+              </div>
+            </article>
+          </div>
         </section>
-      </section>
+      </main>
+    </div>
 
-      <section class="panel telemetryPanel">
-        <div class="panelHeader">
-          <h2>Attitude Plots</h2>
-          <div class="plotControls" aria-label="Attitude plot controls">
-            <label class="plotToggle">
-              <input type="checkbox" data-plot-toggle="roll" checked>
-              <span>Roll</span>
-            </label>
-            <label class="plotToggle">
-              <input type="checkbox" data-plot-toggle="pitch" checked>
-              <span>Pitch</span>
-            </label>
-            <label class="plotToggle">
-              <input type="checkbox" data-plot-toggle="yaw" checked>
-              <span>Yaw</span>
-            </label>
-            <span class="plotWindow">Last 30 s</span>
-          </div>
-        </div>
-        <div class="plotGrid">
-          <article class="plotCard" data-plot-card="roll">
-            <div class="plotHeader">
-              <span>Roll</span>
-              <strong id="rollPlotValue">0.00 deg</strong>
-            </div>
-            <div class="plotCanvasWrap">
-              <canvas id="rollPlotCanvas" aria-label="Realtime roll plot"></canvas>
-            </div>
-          </article>
-          <article class="plotCard" data-plot-card="pitch">
-            <div class="plotHeader">
-              <span>Pitch</span>
-              <strong id="pitchPlotValue">0.00 deg</strong>
-            </div>
-            <div class="plotCanvasWrap">
-              <canvas id="pitchPlotCanvas" aria-label="Realtime pitch plot"></canvas>
-            </div>
-          </article>
-          <article class="plotCard" data-plot-card="yaw">
-            <div class="plotHeader">
-              <span>Yaw</span>
-              <strong id="yawPlotValue">0.00 deg</strong>
-            </div>
-            <div class="plotCanvasWrap">
-              <canvas id="yawPlotCanvas" aria-label="Realtime yaw plot"></canvas>
-            </div>
-          </article>
-        </div>
-      </section>
-    </main>
-
+    <script src="/static/altitude.js"></script>
     <script src="/static/attitude.js"></script>
     <script src="/static/plot.js"></script>
     <script src="/static/app.js"></script>

@@ -13,6 +13,7 @@ const customCommandInput = document.querySelector("#customCommandInput");
 const logOutput = document.querySelector("#logOutput");
 const clearLogButton = document.querySelector("#clearLogButton");
 const themeToggleButton = document.querySelector("#themeToggleButton");
+const altitudeCanvas = document.querySelector("#altitudeCanvas");
 const attitudeCanvas = document.querySelector("#attitudeCanvas");
 const headingCanvas = document.querySelector("#headingCanvas");
 const attitudeStatus = document.querySelector("#attitudeStatus");
@@ -31,6 +32,7 @@ let lastPlottedAttitudeAt = null;
 const MAX_VISIBLE_LOGS = 12;
 const THEME_STORAGE_KEY = "gcs-theme";
 const PLOT_VISIBILITY_STORAGE_KEY = "gcs-plot-visibility";
+const altitudeTape = new AltitudeTape(altitudeCanvas);
 const attitudeIndicator = new AttitudeIndicator(attitudeCanvas);
 const headingIndicator = new HeadingIndicator(headingCanvas);
 const attitudePlots = {
@@ -174,6 +176,10 @@ function renderAttitude(attitude) {
   }
 }
 
+function renderAltitude(altitude) {
+  altitudeTape.setTarget(altitude);
+}
+
 function normalizeDegrees(value) {
   return ((value % 360) + 360) % 360;
 }
@@ -212,6 +218,7 @@ function renderStatus(status) {
   setConnectedUi(status);
   renderLogs(status.logs);
   renderAttitude(status.attitude);
+  renderAltitude(status.altitude);
 }
 
 function connectStatusStream() {

@@ -29,6 +29,11 @@ IMU_ATTITUDE_PATTERN = re.compile(
     r"pitch=(?P<pitch>-?\d+(?:\.\d+)?)\s+"
     r"yaw=(?P<yaw>-?\d+(?:\.\d+)?)"
 )
+ALTITUDE_PATTERNS = (
+    re.compile(r"\[IMU\].*?\salt=(?P<altitude>-?\d+(?:\.\d+)?)\s*m\b"),
+    re.compile(r"\[GNSS\].*?\srelAlt=(?P<altitude>-?\d+(?:\.\d+)?)\s*m\b"),
+    re.compile(r"\[GNSS\].*?\shmsl=(?P<altitude>-?\d+(?:\.\d+)?)\s*m\b"),
+)
 
 
 @app.after_request
@@ -52,6 +57,11 @@ class SerialBridge:
             "roll": 0.0,
             "pitch": 0.0,
             "yaw": 0.0,
+            "valid": False,
+            "updated_at": 0.0,
+        }
+        self._altitude = {
+            "meters": 0.0,
             "valid": False,
             "updated_at": 0.0,
         }
@@ -102,6 +112,7 @@ class SerialBridge:
                 "logs": list(self._logs),
                 "suppressed_rx_count": self._suppressed_rx_count,
                 "attitude": dict(self._attitude),
+                "altitude": dict(self._altitude),
             }
 
     def wait_for_snapshot(self, last_version: int, timeout: float = 10.0) -> dict:
@@ -167,10 +178,11 @@ class SerialBridge:
 
     def _append_rx_line(self, message: str) -> None:
         attitude_updated = self._update_attitude(message)
+        altitude_updated = self._update_altitude(message)
 
         if self._is_repeating_telemetry(message):
             self._suppressed_rx_count += 1
-            if not attitude_updated:
+            if not attitude_updated and not altitude_updated:
                 self._mark_changed()
             return
 
@@ -191,6 +203,22 @@ class SerialBridge:
         self._mark_changed()
         return True
 
+    def _update_altitude(self, message: str) -> bool:
+        for pattern in ALTITUDE_PATTERNS:
+            match = pattern.search(message)
+            if match is None:
+                continue
+
+            self._altitude = {
+                "meters": float(match.group("altitude")),
+                "valid": True,
+                "updated_at": time.time(),
+            }
+            self._mark_changed()
+            return True
+
+        return False
+
     @staticmethod
     def _is_repeating_telemetry(message: str) -> bool:
         return message.startswith(("[STATUS]", "[IMU]", "[GNSS]"))
@@ -205,6 +233,7 @@ class SerialBridge:
             "logs": list(self._logs),
             "suppressed_rx_count": self._suppressed_rx_count,
             "attitude": dict(self._attitude),
+            "altitude": dict(self._altitude),
         }
 
     def _mark_changed(self) -> None:
