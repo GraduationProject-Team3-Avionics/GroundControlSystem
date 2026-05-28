@@ -53,8 +53,7 @@ constexpr bool SEND_INDIVIDUAL_MOTOR_PWM = true;
 // Required by the localhost attitude indicator. The web UI suppresses these
 // lines from Recent Activity and uses them only for roll/pitch/yaw rendering.
 constexpr bool PRINT_IMU_TELEMETRY = true;
-constexpr bool PRINT_GNSS_TELEMETRY = false;
-// constexpr bool PRINT_GNSS_TELEMETRY = true;
+constexpr bool PRINT_GNSS_TELEMETRY = true;
 constexpr bool PRINT_STATUS_TELEMETRY = true;
 constexpr bool PRINT_EKF_STATE_TELEMETRY = true;
 constexpr bool PRINT_EKF_COVARIANCE_TELEMETRY = true;

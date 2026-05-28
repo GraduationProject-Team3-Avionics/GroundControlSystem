@@ -1,12 +1,13 @@
 import argparse
 import atexit
 import json
+import math
 import re
 import threading
 import time
 from collections import deque
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import serial
 import serial.tools.list_ports
@@ -48,6 +49,55 @@ EKF_COVARIANCE_PATTERN = re.compile(
     rf"e=(?P<cov_e>{FLOAT_PATTERN})\s+"
     rf"d=(?P<cov_d>{FLOAT_PATTERN})"
 )
+GNSS_POSITION_PATTERN = re.compile(
+    rf"\[GNSS\].*?fix=(?P<fix>\d+).*?"
+    rf"lat=(?P<lat>{FLOAT_PATTERN}).*?"
+    rf"lon=(?P<lon>{FLOAT_PATTERN}).*?"
+    rf"hmsl=(?P<hmsl>{FLOAT_PATTERN})\s*m.*?"
+    rf"hAcc=(?P<hacc>{FLOAT_PATTERN})\s*cm.*?"
+    rf"vAcc=(?P<vacc>{FLOAT_PATTERN})\s*cm.*?"
+    rf"relAlt=(?P<rel_alt>{FLOAT_PATTERN})\s*m"
+)
+WGS84_A = 6378137.0
+WGS84_E2 = 6.69437999014e-3
+
+
+def llh_to_ecef(lat_deg: float, lon_deg: float, height_m: float) -> Tuple[float, float, float]:
+    lat = math.radians(lat_deg)
+    lon = math.radians(lon_deg)
+    sin_lat = math.sin(lat)
+    cos_lat = math.cos(lat)
+    sin_lon = math.sin(lon)
+    cos_lon = math.cos(lon)
+    radius = WGS84_A / math.sqrt(1.0 - WGS84_E2 * sin_lat * sin_lat)
+
+    x = (radius + height_m) * cos_lat * cos_lon
+    y = (radius + height_m) * cos_lat * sin_lon
+    z = (radius * (1.0 - WGS84_E2) + height_m) * sin_lat
+    return x, y, z
+
+
+def ecef_to_ned(
+    ecef: Tuple[float, float, float],
+    origin_ecef: Tuple[float, float, float],
+    origin_lat_deg: float,
+    origin_lon_deg: float,
+) -> dict:
+    lat = math.radians(origin_lat_deg)
+    lon = math.radians(origin_lon_deg)
+    sin_lat = math.sin(lat)
+    cos_lat = math.cos(lat)
+    sin_lon = math.sin(lon)
+    cos_lon = math.cos(lon)
+    dx = ecef[0] - origin_ecef[0]
+    dy = ecef[1] - origin_ecef[1]
+    dz = ecef[2] - origin_ecef[2]
+
+    return {
+        "x": -sin_lat * cos_lon * dx - sin_lat * sin_lon * dy + cos_lat * dz,
+        "y": -sin_lon * dx + cos_lon * dy,
+        "z": -cos_lat * cos_lon * dx - cos_lat * sin_lon * dy - sin_lat * dz,
+    }
 
 
 @app.after_request
@@ -88,6 +138,18 @@ class SerialBridge:
             "covariance_valid": False,
             "updated_at": 0.0,
             "covariance_updated_at": 0.0,
+        }
+        self._gnss_origin = None
+        self._gnss = {
+            "frame": "NED",
+            "fix_type": 0,
+            "llh": {"lat": 0.0, "lon": 0.0, "hmsl": 0.0},
+            "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "accuracy": {"horizontal": 0.0, "vertical": 0.0},
+            "relative_altitude": 0.0,
+            "origin": None,
+            "valid": False,
+            "updated_at": 0.0,
         }
         self._version = 0
 
@@ -138,6 +200,7 @@ class SerialBridge:
                 "attitude": dict(self._attitude),
                 "altitude": dict(self._altitude),
                 "ekf": self._ekf_snapshot_locked(),
+                "gnss": self._gnss_snapshot_locked(),
             }
 
     def wait_for_snapshot(self, last_version: int, timeout: float = 10.0) -> dict:
@@ -206,10 +269,17 @@ class SerialBridge:
         altitude_updated = self._update_altitude(message)
         ekf_updated = self._update_ekf_state(message)
         ekf_covariance_updated = self._update_ekf_covariance(message)
+        gnss_updated = self._update_gnss_position(message)
 
         if self._is_repeating_telemetry(message):
             self._suppressed_rx_count += 1
-            if not attitude_updated and not altitude_updated and not ekf_updated and not ekf_covariance_updated:
+            if (
+                not attitude_updated
+                and not altitude_updated
+                and not ekf_updated
+                and not ekf_covariance_updated
+                and not gnss_updated
+            ):
                 self._mark_changed()
             return
 
@@ -281,6 +351,58 @@ class SerialBridge:
         self._mark_changed()
         return True
 
+    def _update_gnss_position(self, message: str) -> bool:
+        match = GNSS_POSITION_PATTERN.search(message)
+        if match is None:
+            return False
+
+        fix_type = int(match.group("fix"))
+        lat = float(match.group("lat"))
+        lon = float(match.group("lon"))
+        hmsl = float(match.group("hmsl"))
+        hacc = float(match.group("hacc")) / 100.0
+        vacc = float(match.group("vacc")) / 100.0
+        rel_alt = float(match.group("rel_alt"))
+        valid = fix_type >= 2 and lat != 0.0 and lon != 0.0
+
+        position = dict(self._gnss["position"])
+        origin_snapshot = self._gnss["origin"]
+        if valid:
+            if self._gnss_origin is None:
+                origin_ecef = llh_to_ecef(lat, lon, hmsl)
+                self._gnss_origin = {
+                    "lat": lat,
+                    "lon": lon,
+                    "hmsl": hmsl,
+                    "ecef": origin_ecef,
+                }
+
+            position = ecef_to_ned(
+                llh_to_ecef(lat, lon, hmsl),
+                self._gnss_origin["ecef"],
+                self._gnss_origin["lat"],
+                self._gnss_origin["lon"],
+            )
+            origin_snapshot = {
+                "lat": self._gnss_origin["lat"],
+                "lon": self._gnss_origin["lon"],
+                "hmsl": self._gnss_origin["hmsl"],
+            }
+
+        self._gnss = {
+            "frame": "NED",
+            "fix_type": fix_type,
+            "llh": {"lat": lat, "lon": lon, "hmsl": hmsl},
+            "position": position,
+            "accuracy": {"horizontal": hacc, "vertical": vacc},
+            "relative_altitude": rel_alt,
+            "origin": origin_snapshot,
+            "valid": valid,
+            "updated_at": time.time(),
+        }
+        self._mark_changed()
+        return True
+
     @staticmethod
     def _is_repeating_telemetry(message: str) -> bool:
         return message.startswith(("[STATUS]", "[IMU]", "[GNSS]", "[EKF]", "[EKF_COV]"))
@@ -297,6 +419,7 @@ class SerialBridge:
             "attitude": dict(self._attitude),
             "altitude": dict(self._altitude),
             "ekf": self._ekf_snapshot_locked(),
+            "gnss": self._gnss_snapshot_locked(),
         }
 
     def _ekf_snapshot_locked(self) -> dict:
@@ -309,6 +432,19 @@ class SerialBridge:
             "covariance_valid": self._ekf["covariance_valid"],
             "updated_at": self._ekf["updated_at"],
             "covariance_updated_at": self._ekf["covariance_updated_at"],
+        }
+
+    def _gnss_snapshot_locked(self) -> dict:
+        return {
+            "frame": self._gnss["frame"],
+            "fix_type": self._gnss["fix_type"],
+            "llh": dict(self._gnss["llh"]),
+            "position": dict(self._gnss["position"]),
+            "accuracy": dict(self._gnss["accuracy"]),
+            "relative_altitude": self._gnss["relative_altitude"],
+            "origin": dict(self._gnss["origin"]) if self._gnss["origin"] is not None else None,
+            "valid": self._gnss["valid"],
+            "updated_at": self._gnss["updated_at"],
         }
 
     def _mark_changed(self) -> None:

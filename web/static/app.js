@@ -36,6 +36,16 @@ const velocityPlotCanvas = document.querySelector("#velocityPlotCanvas");
 const velocityXValue = document.querySelector("#velocityXValue");
 const velocityYValue = document.querySelector("#velocityYValue");
 const velocityZValue = document.querySelector("#velocityZValue");
+const gpsStatus = document.querySelector("#gpsStatus");
+const gpsNedNValue = document.querySelector("#gpsNedNValue");
+const gpsNedEValue = document.querySelector("#gpsNedEValue");
+const gpsNedDValue = document.querySelector("#gpsNedDValue");
+const gpsLatValue = document.querySelector("#gpsLatValue");
+const gpsLonValue = document.querySelector("#gpsLonValue");
+const gpsHmslValue = document.querySelector("#gpsHmslValue");
+const gpsHaccValue = document.querySelector("#gpsHaccValue");
+const gpsVaccValue = document.querySelector("#gpsVaccValue");
+const gpsOriginValue = document.querySelector("#gpsOriginValue");
 
 let visibleLogs = [];
 let hiddenLogCount = 0;
@@ -308,8 +318,43 @@ function renderEkf(ekf) {
   velocityPlot.addSample(sampleTime, { x: velocityX, y: velocityY, z: velocityZ });
 }
 
+function renderGnss(gnss) {
+  const valid = Boolean(gnss && gnss.valid);
+  const hasSample = Boolean(gnss && Number(gnss.updated_at) > 0);
+  const position = valid && gnss.position ? gnss.position : {};
+  const llh = hasSample && gnss.llh ? gnss.llh : {};
+  const accuracy = hasSample && gnss.accuracy ? gnss.accuracy : {};
+  const origin = gnss && gnss.origin ? gnss.origin : null;
+  const fixType = gnss ? Number(gnss.fix_type) : 0;
+
+  gpsStatus.textContent = valid ? `Fix ${fixType}` : "No GPS";
+  gpsStatus.dataset.live = valid ? "true" : "false";
+
+  gpsNedNValue.textContent = formatMeters(position.x, valid);
+  gpsNedEValue.textContent = formatMeters(position.y, valid);
+  gpsNedDValue.textContent = formatMeters(position.z, valid);
+  gpsLatValue.textContent = formatDegrees(llh.lat, hasSample);
+  gpsLonValue.textContent = formatDegrees(llh.lon, hasSample);
+  gpsHmslValue.textContent = formatMeters(llh.hmsl, hasSample);
+  gpsHaccValue.textContent = formatMeters(accuracy.horizontal, hasSample);
+  gpsVaccValue.textContent = formatMeters(accuracy.vertical, hasSample);
+  gpsOriginValue.textContent = origin
+    ? `${Number(origin.lat).toFixed(7)}, ${Number(origin.lon).toFixed(7)}`
+    : "---";
+}
+
 function normalizeDegrees(value) {
   return ((value % 360) + 360) % 360;
+}
+
+function formatMeters(value, valid) {
+  const numeric = Number(value);
+  return valid && Number.isFinite(numeric) ? `${numeric.toFixed(2)} m` : "--- m";
+}
+
+function formatDegrees(value, valid) {
+  const numeric = Number(value);
+  return valid && Number.isFinite(numeric) ? `${numeric.toFixed(7)} deg` : "--- deg";
 }
 
 function formatStdDev(covariance, valid) {
@@ -386,6 +431,7 @@ function renderStatus(status) {
   renderAttitude(status.attitude);
   renderAltitude(status.altitude);
   renderEkf(status.ekf);
+  renderGnss(status.gnss);
 }
 
 function connectStatusStream() {
