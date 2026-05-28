@@ -56,6 +56,8 @@ constexpr bool PRINT_IMU_TELEMETRY = true;
 constexpr bool PRINT_GNSS_TELEMETRY = false;
 // constexpr bool PRINT_GNSS_TELEMETRY = true;
 constexpr bool PRINT_STATUS_TELEMETRY = true;
+constexpr bool PRINT_EKF_STATE_TELEMETRY = true;
+constexpr bool PRINT_EKF_COVARIANCE_TELEMETRY = true;
 
 // ------------------------------
 // RTOS objects
@@ -74,7 +76,9 @@ enum class PacketType : uint8_t
   Command       = 0x10,
   ImuTelemetry  = 0x20,
   GnssTelemetry = 0x21,
-  SystemStatus  = 0x22
+  SystemStatus  = 0x22,
+  EkfStateTelemetry = 0x23,
+  EkfCovarianceTelemetry = 0x24
 };
 
 enum class CommandId : uint8_t
@@ -137,6 +141,10 @@ constexpr uint16_t StatusFlagGnssValid     = 1U << 2U;
 constexpr uint16_t StatusFlagRfLinkAlive   = 1U << 3U;
 constexpr uint16_t StatusFlagCommandAccept = 1U << 4U;
 constexpr uint16_t StatusFlagCommandReject = 1U << 5U;
+
+constexpr uint8_t EkfFlagInitialized      = 1U << 0U;
+constexpr uint8_t EkfFlagPropagationValid = 1U << 1U;
+constexpr uint8_t EkfFlagGnssCorrected    = 1U << 2U;
 
 #pragma pack(push, 1)
 
@@ -237,12 +245,66 @@ struct SystemStatusPacket
   uint16_t crc16;
 };
 
+struct EkfStateTelemetryPacket
+{
+  uint8_t packetType;
+  uint8_t sequence;
+  uint16_t timeMs10;
+
+  uint8_t flags;
+  uint8_t reserved0;
+  uint16_t predictionCount;
+
+  int32_t posNCm;
+  int32_t posECm;
+  int32_t posDCm;
+
+  int16_t velNCmps;
+  int16_t velECmps;
+  int16_t velDCmps;
+
+  uint16_t correctionCount;
+  uint16_t reserved1;
+
+  uint16_t crc16;
+};
+
+struct EkfCovarianceTelemetryPacket
+{
+  uint8_t packetType;
+  uint8_t sequence;
+  uint16_t timeMs10;
+
+  uint8_t flags;
+  uint8_t reserved0;
+
+  uint16_t pNCovDm2;
+  uint16_t pECovDm2;
+  uint16_t pDCovDm2;
+
+  uint16_t vNCovCenti;
+  uint16_t vECovCenti;
+  uint16_t vDCovCenti;
+
+  uint16_t bAxCovMilli;
+  uint16_t bAyCovMilli;
+  uint16_t bAzCovMilli;
+
+  uint16_t predictionCount;
+  uint16_t correctionCount;
+  uint16_t reserved1;
+
+  uint16_t crc16;
+};
+
 #pragma pack(pop)
 
 static_assert(sizeof(ImuTelemetryPacket) == PACKET_SIZE, "IMU packet must be 32 bytes");
 static_assert(sizeof(GnssTelemetryPacket) == PACKET_SIZE, "GNSS packet must be 32 bytes");
 static_assert(sizeof(CommandPacket) == PACKET_SIZE, "Command packet must be 32 bytes");
 static_assert(sizeof(SystemStatusPacket) == PACKET_SIZE, "System status packet must be 32 bytes");
+static_assert(sizeof(EkfStateTelemetryPacket) == PACKET_SIZE, "EKF state packet must be 32 bytes");
+static_assert(sizeof(EkfCovarianceTelemetryPacket) == PACKET_SIZE, "EKF covariance packet must be 32 bytes");
 
 struct GcsCommand
 {
@@ -340,6 +402,31 @@ float unscaleAccelG(int16_t value)
 float unscaleAltitudeM(int16_t value)
 {
   return static_cast<float>(value) / 100.0f;
+}
+
+float unscalePositionM(int32_t value)
+{
+  return static_cast<float>(value) / 100.0f;
+}
+
+float unscaleVelocityMps(int16_t value)
+{
+  return static_cast<float>(value) / 100.0f;
+}
+
+float unscalePositionCovM2(uint16_t value)
+{
+  return static_cast<float>(value) / 10.0f;
+}
+
+float unscaleVelocityCovM2ps2(uint16_t value)
+{
+  return static_cast<float>(value) / 100.0f;
+}
+
+float unscaleAccelBiasCov(uint16_t value)
+{
+  return static_cast<float>(value) / 1000.0f;
 }
 
 float clampUnit(float value)
@@ -694,6 +781,106 @@ void printSystemStatusPacket(const uint8_t* payload)
   UnlockSerial();
 }
 
+void printEkfStatePacket(const uint8_t* payload)
+{
+  if (!PRINT_EKF_STATE_TELEMETRY)
+  {
+    return;
+  }
+
+  const auto* packet = reinterpret_cast<const EkfStateTelemetryPacket*>(payload);
+
+  LockSerial();
+  Serial.print("[EKF] seq=");
+  Serial.print(packet->sequence);
+  Serial.print(" t=");
+  Serial.print(static_cast<uint32_t>(packet->timeMs10) * 10UL);
+
+  Serial.print(" flags=0x");
+  Serial.print(packet->flags, HEX);
+
+  if ((packet->flags & EkfFlagInitialized) != 0U)
+  {
+    Serial.print(" INIT");
+  }
+
+  if ((packet->flags & EkfFlagPropagationValid) != 0U)
+  {
+    Serial.print(" PROP");
+  }
+
+  if ((packet->flags & EkfFlagGnssCorrected) != 0U)
+  {
+    Serial.print(" GNSS_CORR");
+  }
+
+  Serial.print(" posNED[m] n=");
+  Serial.print(unscalePositionM(packet->posNCm), 2);
+  Serial.print(" e=");
+  Serial.print(unscalePositionM(packet->posECm), 2);
+  Serial.print(" d=");
+  Serial.print(unscalePositionM(packet->posDCm), 2);
+
+  Serial.print(" velNED[mps] n=");
+  Serial.print(unscaleVelocityMps(packet->velNCmps), 2);
+  Serial.print(" e=");
+  Serial.print(unscaleVelocityMps(packet->velECmps), 2);
+  Serial.print(" d=");
+  Serial.print(unscaleVelocityMps(packet->velDCmps), 2);
+
+  Serial.print(" pred=");
+  Serial.print(packet->predictionCount);
+  Serial.print(" corr=");
+  Serial.println(packet->correctionCount);
+  UnlockSerial();
+}
+
+void printEkfCovariancePacket(const uint8_t* payload)
+{
+  if (!PRINT_EKF_COVARIANCE_TELEMETRY)
+  {
+    return;
+  }
+
+  const auto* packet = reinterpret_cast<const EkfCovarianceTelemetryPacket*>(payload);
+
+  LockSerial();
+  Serial.print("[EKF_COV] seq=");
+  Serial.print(packet->sequence);
+  Serial.print(" t=");
+  Serial.print(static_cast<uint32_t>(packet->timeMs10) * 10UL);
+
+  Serial.print(" flags=0x");
+  Serial.print(packet->flags, HEX);
+
+  Serial.print(" Ppos[m2] n=");
+  Serial.print(unscalePositionCovM2(packet->pNCovDm2), 1);
+  Serial.print(" e=");
+  Serial.print(unscalePositionCovM2(packet->pECovDm2), 1);
+  Serial.print(" d=");
+  Serial.print(unscalePositionCovM2(packet->pDCovDm2), 1);
+
+  Serial.print(" Pvel[(mps)2] n=");
+  Serial.print(unscaleVelocityCovM2ps2(packet->vNCovCenti), 2);
+  Serial.print(" e=");
+  Serial.print(unscaleVelocityCovM2ps2(packet->vECovCenti), 2);
+  Serial.print(" d=");
+  Serial.print(unscaleVelocityCovM2ps2(packet->vDCovCenti), 2);
+
+  Serial.print(" Pbacc[(mps2)2] x=");
+  Serial.print(unscaleAccelBiasCov(packet->bAxCovMilli), 3);
+  Serial.print(" y=");
+  Serial.print(unscaleAccelBiasCov(packet->bAyCovMilli), 3);
+  Serial.print(" z=");
+  Serial.print(unscaleAccelBiasCov(packet->bAzCovMilli), 3);
+
+  Serial.print(" pred=");
+  Serial.print(packet->predictionCount);
+  Serial.print(" corr=");
+  Serial.println(packet->correctionCount);
+  UnlockSerial();
+}
+
 void handleRxPacket(const uint8_t* payload)
 {
   if (!validatePacketCrc(payload))
@@ -718,6 +905,14 @@ void handleRxPacket(const uint8_t* payload)
 
     case PacketType::SystemStatus:
       printSystemStatusPacket(payload);
+      break;
+
+    case PacketType::EkfStateTelemetry:
+      printEkfStatePacket(payload);
+      break;
+
+    case PacketType::EkfCovarianceTelemetry:
+      printEkfCovariancePacket(payload);
       break;
 
     default:

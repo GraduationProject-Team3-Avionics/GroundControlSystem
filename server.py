@@ -34,6 +34,20 @@ ALTITUDE_PATTERNS = (
     re.compile(r"\[GNSS\].*?\srelAlt=(?P<altitude>-?\d+(?:\.\d+)?)\s*m\b"),
     re.compile(r"\[GNSS\].*?\shmsl=(?P<altitude>-?\d+(?:\.\d+)?)\s*m\b"),
 )
+FLOAT_PATTERN = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)"
+EKF_STATE_PATTERN = re.compile(
+    rf"\[EKF\].*?posNED\[m\]\s+n=(?P<pos_n>{FLOAT_PATTERN})\s+"
+    rf"e=(?P<pos_e>{FLOAT_PATTERN})\s+"
+    rf"d=(?P<pos_d>{FLOAT_PATTERN}).*?"
+    rf"velNED\[mps\]\s+n=(?P<vel_n>{FLOAT_PATTERN})\s+"
+    rf"e=(?P<vel_e>{FLOAT_PATTERN})\s+"
+    rf"d=(?P<vel_d>{FLOAT_PATTERN})"
+)
+EKF_COVARIANCE_PATTERN = re.compile(
+    rf"\[EKF_COV\].*?Ppos\[m2\]\s+n=(?P<cov_n>{FLOAT_PATTERN})\s+"
+    rf"e=(?P<cov_e>{FLOAT_PATTERN})\s+"
+    rf"d=(?P<cov_d>{FLOAT_PATTERN})"
+)
 
 
 @app.after_request
@@ -64,6 +78,16 @@ class SerialBridge:
             "meters": 0.0,
             "valid": False,
             "updated_at": 0.0,
+        }
+        self._ekf = {
+            "frame": "NED",
+            "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "position_covariance": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "valid": False,
+            "covariance_valid": False,
+            "updated_at": 0.0,
+            "covariance_updated_at": 0.0,
         }
         self._version = 0
 
@@ -113,6 +137,7 @@ class SerialBridge:
                 "suppressed_rx_count": self._suppressed_rx_count,
                 "attitude": dict(self._attitude),
                 "altitude": dict(self._altitude),
+                "ekf": self._ekf_snapshot_locked(),
             }
 
     def wait_for_snapshot(self, last_version: int, timeout: float = 10.0) -> dict:
@@ -179,10 +204,12 @@ class SerialBridge:
     def _append_rx_line(self, message: str) -> None:
         attitude_updated = self._update_attitude(message)
         altitude_updated = self._update_altitude(message)
+        ekf_updated = self._update_ekf_state(message)
+        ekf_covariance_updated = self._update_ekf_covariance(message)
 
         if self._is_repeating_telemetry(message):
             self._suppressed_rx_count += 1
-            if not attitude_updated and not altitude_updated:
+            if not attitude_updated and not altitude_updated and not ekf_updated and not ekf_covariance_updated:
                 self._mark_changed()
             return
 
@@ -219,9 +246,44 @@ class SerialBridge:
 
         return False
 
+    def _update_ekf_state(self, message: str) -> bool:
+        match = EKF_STATE_PATTERN.search(message)
+        if match is None:
+            return False
+
+        self._ekf["position"] = {
+            "x": float(match.group("pos_n")),
+            "y": float(match.group("pos_e")),
+            "z": float(match.group("pos_d")),
+        }
+        self._ekf["velocity"] = {
+            "x": float(match.group("vel_n")),
+            "y": float(match.group("vel_e")),
+            "z": float(match.group("vel_d")),
+        }
+        self._ekf["valid"] = True
+        self._ekf["updated_at"] = time.time()
+        self._mark_changed()
+        return True
+
+    def _update_ekf_covariance(self, message: str) -> bool:
+        match = EKF_COVARIANCE_PATTERN.search(message)
+        if match is None:
+            return False
+
+        self._ekf["position_covariance"] = {
+            "x": float(match.group("cov_n")),
+            "y": float(match.group("cov_e")),
+            "z": float(match.group("cov_d")),
+        }
+        self._ekf["covariance_valid"] = True
+        self._ekf["covariance_updated_at"] = time.time()
+        self._mark_changed()
+        return True
+
     @staticmethod
     def _is_repeating_telemetry(message: str) -> bool:
-        return message.startswith(("[STATUS]", "[IMU]", "[GNSS]"))
+        return message.startswith(("[STATUS]", "[IMU]", "[GNSS]", "[EKF]", "[EKF_COV]"))
 
     def _snapshot_locked(self) -> dict:
         connected = self._serial is not None and self._serial.is_open
@@ -234,6 +296,19 @@ class SerialBridge:
             "suppressed_rx_count": self._suppressed_rx_count,
             "attitude": dict(self._attitude),
             "altitude": dict(self._altitude),
+            "ekf": self._ekf_snapshot_locked(),
+        }
+
+    def _ekf_snapshot_locked(self) -> dict:
+        return {
+            "frame": self._ekf["frame"],
+            "position": dict(self._ekf["position"]),
+            "velocity": dict(self._ekf["velocity"]),
+            "position_covariance": dict(self._ekf["position_covariance"]),
+            "valid": self._ekf["valid"],
+            "covariance_valid": self._ekf["covariance_valid"],
+            "updated_at": self._ekf["updated_at"],
+            "covariance_updated_at": self._ekf["covariance_updated_at"],
         }
 
     def _mark_changed(self) -> None:

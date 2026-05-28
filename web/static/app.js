@@ -25,11 +25,23 @@ const yawPlotValue = document.querySelector("#yawPlotValue");
 const rollPlotCanvas = document.querySelector("#rollPlotCanvas");
 const pitchPlotCanvas = document.querySelector("#pitchPlotCanvas");
 const yawPlotCanvas = document.querySelector("#yawPlotCanvas");
+const ekfStatus = document.querySelector("#ekfStatus");
+const trajectoryCanvas = document.querySelector("#trajectoryCanvas");
+const trajectoryXValue = document.querySelector("#trajectoryXValue");
+const trajectoryYValue = document.querySelector("#trajectoryYValue");
+const trajectoryCovXValue = document.querySelector("#trajectoryCovXValue");
+const trajectoryCovYValue = document.querySelector("#trajectoryCovYValue");
+const trajectoryCovZValue = document.querySelector("#trajectoryCovZValue");
+const velocityPlotCanvas = document.querySelector("#velocityPlotCanvas");
+const velocityXValue = document.querySelector("#velocityXValue");
+const velocityYValue = document.querySelector("#velocityYValue");
+const velocityZValue = document.querySelector("#velocityZValue");
 
 let visibleLogs = [];
 let hiddenLogCount = 0;
 let statusEvents = null;
 let lastPlottedAttitudeAt = null;
+let lastPlottedEkfAt = null;
 let landingRunId = 0;
 let landingActive = false;
 const MAX_VISIBLE_LOGS = 12;
@@ -38,6 +50,7 @@ const LAND_STEP_PWM = 10;
 const LAND_STEP_INTERVAL_MS = 700;
 const THEME_STORAGE_KEY = "gcs-theme";
 const PLOT_VISIBILITY_STORAGE_KEY = "gcs-plot-visibility";
+const VELOCITY_VISIBILITY_STORAGE_KEY = "gcs-velocity-visibility";
 const altitudeTape = new AltitudeTape(altitudeCanvas);
 const attitudeIndicator = new AttitudeIndicator(attitudeCanvas);
 const headingIndicator = new HeadingIndicator(headingCanvas);
@@ -46,7 +59,18 @@ const attitudePlots = {
   pitch: new RealtimeLinePlot(pitchPlotCanvas, { label: "pitch", unit: "deg", colorVar: "--plot-pitch" }),
   yaw: new RealtimeLinePlot(yawPlotCanvas, { label: "yaw", unit: "deg", colorVar: "--plot-yaw" }),
 };
+const trajectoryPlot = new TrajectoryPlot(trajectoryCanvas, { label: "EKF trajectory" });
+const velocityPlot = new RealtimeMultiLinePlot(velocityPlotCanvas, {
+  label: "EKF velocity",
+  unit: "m/s",
+  series: [
+    { key: "x", label: "X", colorVar: "--plot-x" },
+    { key: "y", label: "Y", colorVar: "--plot-y" },
+    { key: "z", label: "Z", colorVar: "--plot-z" },
+  ],
+});
 const plotToggleInputs = document.querySelectorAll("[data-plot-toggle]");
+const velocityToggleInputs = document.querySelectorAll("[data-velocity-toggle]");
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -102,6 +126,14 @@ function loadPlotVisibility() {
   }
 }
 
+function loadVelocityVisibility() {
+  try {
+    return JSON.parse(localStorage.getItem(VELOCITY_VISIBILITY_STORAGE_KEY) || "{}");
+  } catch (error) {
+    return {};
+  }
+}
+
 function savePlotVisibility() {
   const visibility = {};
   plotToggleInputs.forEach((input) => {
@@ -112,6 +144,19 @@ function savePlotVisibility() {
     localStorage.setItem(PLOT_VISIBILITY_STORAGE_KEY, JSON.stringify(visibility));
   } catch (error) {
     // Plot visibility persistence is optional.
+  }
+}
+
+function saveVelocityVisibility() {
+  const visibility = {};
+  velocityToggleInputs.forEach((input) => {
+    visibility[input.dataset.velocityToggle] = input.checked;
+  });
+
+  try {
+    localStorage.setItem(VELOCITY_VISIBILITY_STORAGE_KEY, JSON.stringify(visibility));
+  } catch (error) {
+    // Velocity visibility persistence is optional.
   }
 }
 
@@ -133,6 +178,19 @@ function setPlotVisibility(name, visible, persist = true) {
   }
 }
 
+function setVelocityVisibility(name, visible, persist = true) {
+  const input = document.querySelector(`[data-velocity-toggle="${name}"]`);
+  if (input) {
+    input.checked = visible;
+  }
+
+  velocityPlot.setSeriesVisible(name, visible);
+
+  if (persist) {
+    saveVelocityVisibility();
+  }
+}
+
 function bindPlotToggles() {
   const storedVisibility = loadPlotVisibility();
   plotToggleInputs.forEach((input) => {
@@ -144,6 +202,22 @@ function bindPlotToggles() {
     setPlotVisibility(name, visible, false);
     input.addEventListener("change", () => {
       setPlotVisibility(name, input.checked);
+    });
+  });
+}
+
+function bindVelocityToggles() {
+  const storedVisibility = loadVelocityVisibility();
+  velocityToggleInputs.forEach((input) => {
+    const name = input.dataset.velocityToggle;
+    const defaultVisible = name !== "z";
+    const visible = Object.prototype.hasOwnProperty.call(storedVisibility, name)
+      ? Boolean(storedVisibility[name])
+      : defaultVisible;
+
+    setVelocityVisibility(name, visible, false);
+    input.addEventListener("change", () => {
+      setVelocityVisibility(name, input.checked);
     });
   });
 }
@@ -192,8 +266,58 @@ function renderAltitude(altitude) {
   altitudeTape.setTarget(altitude);
 }
 
+function renderEkf(ekf) {
+  const valid = Boolean(ekf && ekf.valid);
+  const position = valid && ekf.position ? ekf.position : {};
+  const velocity = valid && ekf.velocity ? ekf.velocity : {};
+  const covarianceValid = Boolean(ekf && ekf.covariance_valid);
+  const positionCovariance = covarianceValid && ekf.position_covariance ? ekf.position_covariance : {};
+  const positionX = Number(position.x);
+  const positionY = Number(position.y);
+  const covarianceX = Number(positionCovariance.x);
+  const covarianceY = Number(positionCovariance.y);
+  const covarianceZ = Number(positionCovariance.z);
+  const velocityX = Number(velocity.x);
+  const velocityY = Number(velocity.y);
+  const velocityZ = Number(velocity.z);
+
+  ekfStatus.textContent = valid ? "EKF Live" : "No EKF";
+  ekfStatus.dataset.live = valid ? "true" : "false";
+
+  trajectoryXValue.textContent = valid && Number.isFinite(positionX) ? `${positionX.toFixed(2)} m` : "--- m";
+  trajectoryYValue.textContent = valid && Number.isFinite(positionY) ? `${positionY.toFixed(2)} m` : "--- m";
+  trajectoryCovXValue.textContent = formatStdDev(covarianceX, covarianceValid);
+  trajectoryCovYValue.textContent = formatStdDev(covarianceY, covarianceValid);
+  trajectoryCovZValue.textContent = formatStdDev(covarianceZ, covarianceValid);
+  velocityXValue.textContent = valid && Number.isFinite(velocityX) ? `${velocityX.toFixed(2)} m/s` : "--- m/s";
+  velocityYValue.textContent = valid && Number.isFinite(velocityY) ? `${velocityY.toFixed(2)} m/s` : "--- m/s";
+  velocityZValue.textContent = valid && Number.isFinite(velocityZ) ? `${velocityZ.toFixed(2)} m/s` : "--- m/s";
+
+  if (!valid) {
+    return;
+  }
+
+  const updatedAt = Number(ekf.updated_at);
+  const sampleTime = Number.isFinite(updatedAt) && updatedAt > 0 ? updatedAt : Date.now() / 1000;
+  if (lastPlottedEkfAt === sampleTime) {
+    return;
+  }
+
+  lastPlottedEkfAt = sampleTime;
+  trajectoryPlot.addSample(sampleTime, positionX, positionY);
+  velocityPlot.addSample(sampleTime, { x: velocityX, y: velocityY, z: velocityZ });
+}
+
 function normalizeDegrees(value) {
   return ((value % 360) + 360) % 360;
+}
+
+function formatStdDev(covariance, valid) {
+  if (!valid || !Number.isFinite(covariance) || covariance < 0) {
+    return "--- m";
+  }
+
+  return `${Math.sqrt(covariance).toFixed(2)} m`;
 }
 
 function readPwmInput() {
@@ -261,6 +385,7 @@ function renderStatus(status) {
   renderLogs(status.logs);
   renderAttitude(status.attitude);
   renderAltitude(status.altitude);
+  renderEkf(status.ekf);
 }
 
 function connectStatusStream() {
@@ -451,6 +576,8 @@ themeToggleButton.addEventListener("click", () => {
   applyTheme(nextTheme);
   saveTheme(nextTheme);
   Object.values(attitudePlots).forEach((plot) => plot.scheduleDraw());
+  trajectoryPlot.scheduleDraw();
+  velocityPlot.scheduleDraw();
 });
 
 async function boot() {
@@ -465,4 +592,5 @@ async function boot() {
 
 applyTheme(document.documentElement.dataset.theme);
 bindPlotToggles();
+bindVelocityToggles();
 boot();

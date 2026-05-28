@@ -94,6 +94,58 @@
                 </div>
               </div>
             </div>
+            <article class="plotCard attitudeVelocityCard">
+              <div class="plotHeader">
+                <span>Velocity</span>
+                <div class="axisReadout">
+                  <span>X <strong id="velocityXValue">--- m/s</strong></span>
+                  <span>Y <strong id="velocityYValue">--- m/s</strong></span>
+                  <span>Z <strong id="velocityZValue">--- m/s</strong></span>
+                </div>
+              </div>
+              <div class="plotLegend" aria-label="Velocity plot legend">
+                <label class="plotToggle velocityToggle">
+                  <input type="checkbox" data-velocity-toggle="x" checked>
+                  <span><i class="legendDot axisX"></i>X</span>
+                </label>
+                <label class="plotToggle velocityToggle">
+                  <input type="checkbox" data-velocity-toggle="y" checked>
+                  <span><i class="legendDot axisY"></i>Y</span>
+                </label>
+                <label class="plotToggle velocityToggle">
+                  <input type="checkbox" data-velocity-toggle="z">
+                  <span><i class="legendDot axisZ"></i>Z</span>
+                </label>
+              </div>
+              <div class="plotCanvasWrap velocityCanvasWrap">
+                <canvas id="velocityPlotCanvas" aria-label="Realtime EKF velocity X Y Z plot"></canvas>
+              </div>
+            </article>
+          </section>
+
+          <section class="panel trajectoryPanel">
+            <div class="panelHeader">
+              <h2>EKF Trajectory</h2>
+              <span id="ekfStatus" class="statusPill">No EKF</span>
+            </div>
+            <article class="plotCard trajectoryCard">
+              <div class="plotHeader">
+                <span>Position</span>
+                <div class="axisReadout">
+                  <span>X/N <strong id="trajectoryXValue">--- m</strong></span>
+                  <span>Y/E <strong id="trajectoryYValue">--- m</strong></span>
+                </div>
+              </div>
+              <div class="trajectoryCanvasWrap">
+                <canvas id="trajectoryCanvas" aria-label="EKF NED X Y trajectory"></canvas>
+              </div>
+              <div class="covarianceReadout" aria-label="EKF position standard deviation">
+                <span>Position Std Dev</span>
+                <strong>N <b id="trajectoryCovXValue">--- m</b></strong>
+                <strong>E <b id="trajectoryCovYValue">--- m</b></strong>
+                <strong>D <b id="trajectoryCovZValue">--- m</b></strong>
+              </div>
+            </article>
           </section>
 
           <section class="panel logPanel">
@@ -154,6 +206,7 @@
             </article>
           </div>
         </section>
+
       </main>
     </div>
 

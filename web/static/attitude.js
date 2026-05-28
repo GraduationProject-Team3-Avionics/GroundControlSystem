@@ -9,6 +9,10 @@ class AttitudeIndicator {
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
+    if ("ResizeObserver" in window) {
+      this.resizeObserver = new ResizeObserver(() => this.resize());
+      this.resizeObserver.observe(this.canvas.parentElement || this.canvas);
+    }
     requestAnimationFrame(() => this.frame());
   }
 
@@ -27,8 +31,8 @@ class AttitudeIndicator {
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    const width = Math.max(320, Math.floor(rect.width));
-    const height = Math.max(320, Math.floor(rect.height));
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height || rect.width));
     this.pixelRatio = window.devicePixelRatio || 1;
     this.canvas.width = Math.floor(width * this.pixelRatio);
     this.canvas.height = Math.floor(height * this.pixelRatio);
@@ -63,7 +67,7 @@ class AttitudeIndicator {
       radius: 18,
     };
     const cx = viewport.x + viewport.width / 2;
-    const cy = viewport.y + viewport.height / 2;
+    const cy = viewport.y + viewport.height * 0.55;
     const radius = Math.min(viewport.width, viewport.height) / 2;
 
     ctx.clearRect(0, 0, w, h);
@@ -310,6 +314,10 @@ class HeadingIndicator {
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
+    if ("ResizeObserver" in window) {
+      this.resizeObserver = new ResizeObserver(() => this.resize());
+      this.resizeObserver.observe(this.canvas.parentElement || this.canvas);
+    }
     requestAnimationFrame(() => this.frame());
   }
 
@@ -326,8 +334,8 @@ class HeadingIndicator {
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    const width = Math.max(220, Math.floor(rect.width));
-    const height = Math.max(220, Math.floor(rect.height || rect.width));
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height || rect.width));
     this.pixelRatio = window.devicePixelRatio || 1;
     this.canvas.width = Math.floor(width * this.pixelRatio);
     this.canvas.height = Math.floor(height * this.pixelRatio);
