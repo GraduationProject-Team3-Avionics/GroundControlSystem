@@ -219,54 +219,69 @@
             <span id="gpsStatus" class="statusPill">No GPS</span>
           </div>
           <div class="gpsGrid">
-            <div class="gpsMetric">
-              <span>N</span>
-              <strong id="gpsNedNValue">--- m</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>E</span>
-              <strong id="gpsNedEValue">--- m</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>D</span>
-              <strong id="gpsNedDValue">--- m</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>Sigma N</span>
-              <strong id="gpsSigmaNValue">--- m</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>Sigma E</span>
-              <strong id="gpsSigmaEValue">--- m</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>Sigma D</span>
-              <strong id="gpsSigmaDValue">--- m</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>Lat</span>
-              <strong id="gpsLatValue">--- deg</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>Lon</span>
-              <strong id="gpsLonValue">--- deg</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>HMSL</span>
-              <strong id="gpsHmslValue">--- m</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>hAcc</span>
-              <strong id="gpsHaccValue">--- m</strong>
-            </div>
-            <div class="gpsMetric">
-              <span>vAcc</span>
-              <strong id="gpsVaccValue">--- m</strong>
-            </div>
-            <div class="gpsMetric gpsOriginMetric">
-              <span>Origin</span>
-              <strong id="gpsOriginValue">---</strong>
-            </div>
+            <fieldset class="gpsGroup gpsGroupNed">
+              <legend>NED <span>m</span></legend>
+              <div class="gpsGroupMetrics">
+                <div class="gpsMetric">
+                  <span>N</span>
+                  <strong id="gpsNedNValue">--- m</strong>
+                </div>
+                <div class="gpsMetric">
+                  <span>E</span>
+                  <strong id="gpsNedEValue">--- m</strong>
+                </div>
+                <div class="gpsMetric">
+                  <span>D</span>
+                  <strong id="gpsNedDValue">--- m</strong>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="gpsGroup gpsGroupSigma">
+              <legend>NED Sigma <span>m</span></legend>
+              <div class="gpsGroupMetrics">
+                <div class="gpsMetric">
+                  <span>Sigma N</span>
+                  <strong id="gpsSigmaNValue">--- m</strong>
+                </div>
+                <div class="gpsMetric">
+                  <span>Sigma E</span>
+                  <strong id="gpsSigmaEValue">--- m</strong>
+                </div>
+                <div class="gpsMetric">
+                  <span>Sigma D</span>
+                  <strong id="gpsSigmaDValue">--- m</strong>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="gpsGroup gpsGroupGeo">
+              <legend>LLH</legend>
+              <div class="gpsGroupMetrics">
+                <div class="gpsMetric">
+                  <span>Lat</span>
+                  <strong id="gpsLatValue">--- deg</strong>
+                </div>
+                <div class="gpsMetric">
+                  <span>Lon</span>
+                  <strong id="gpsLonValue">--- deg</strong>
+                </div>
+                <div class="gpsMetric">
+                  <span>HMSL</span>
+                  <strong id="gpsHmslValue">--- m</strong>
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="gpsGroup gpsGroupReference">
+              <legend>Reference</legend>
+              <div class="gpsGroupMetrics">
+                <div class="gpsMetric gpsOriginMetric">
+                  <span>Origin</span>
+                  <strong id="gpsOriginValue">---</strong>
+                </div>
+              </div>
+            </fieldset>
           </div>
         </section>
 

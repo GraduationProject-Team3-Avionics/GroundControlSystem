@@ -319,6 +319,7 @@ h2 {
   gap: 14px;
   min-height: 0;
   margin-top: 14px;
+  --heading-canvas-offset: 48px;
 }
 
 .attitudeVelocityCard {
@@ -329,6 +330,7 @@ h2 {
   position: relative;
   justify-self: center;
   width: min(100%, 680px);
+  margin-top: var(--heading-canvas-offset);
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -508,14 +510,71 @@ label {
 
 .gpsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
   margin-top: 14px;
+}
+
+.gpsGroup {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--gps-group-border, var(--border));
+  border-left: 3px solid var(--gps-group-accent, var(--accent));
+  border-radius: 7px;
+  padding: 10px;
+}
+
+.gpsGroup legend {
+  padding: 0 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.gpsGroup legend span {
+  margin-left: 4px;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.gpsGroupNed {
+  --gps-group-accent: var(--plot-x);
+  --gps-group-border: rgba(66, 165, 255, 0.46);
+}
+
+.gpsGroupSigma {
+  --gps-group-accent: var(--accent);
+  --gps-group-border: rgba(47, 191, 143, 0.5);
+}
+
+.gpsGroupGeo {
+  --gps-group-accent: var(--plot-y);
+  --gps-group-border: rgba(255, 143, 107, 0.46);
+}
+
+.gpsGroupReference {
+  --gps-group-accent: var(--plot-z);
+  --gps-group-border: rgba(255, 209, 102, 0.46);
+}
+
+.gpsGroupMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.gpsGroupGeo .gpsGroupMetrics {
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.gpsGroupReference .gpsGroupMetrics {
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
 }
 
 .gpsMetric {
   min-width: 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--gps-group-border, var(--border));
   border-radius: 6px;
   background: var(--panel-strong);
   padding: 10px 12px;
@@ -540,7 +599,7 @@ label {
 }
 
 .gpsOriginMetric {
-  grid-column: span 2;
+  grid-column: 1 / -1;
 }
 
 .plotCard {
@@ -805,6 +864,7 @@ body[data-connected="false"] #disconnectButton {
 @media (max-width: 720px) {
   .instrumentGrid {
     grid-template-columns: 1fr;
+    --heading-canvas-offset: 0px;
   }
 
   .headingInstrument {

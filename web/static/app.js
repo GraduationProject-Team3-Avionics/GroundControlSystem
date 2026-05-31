@@ -48,8 +48,6 @@ const gpsSigmaDValue = document.querySelector("#gpsSigmaDValue");
 const gpsLatValue = document.querySelector("#gpsLatValue");
 const gpsLonValue = document.querySelector("#gpsLonValue");
 const gpsHmslValue = document.querySelector("#gpsHmslValue");
-const gpsHaccValue = document.querySelector("#gpsHaccValue");
-const gpsVaccValue = document.querySelector("#gpsVaccValue");
 const gpsOriginValue = document.querySelector("#gpsOriginValue");
 
 let visibleLogs = [];
@@ -328,7 +326,6 @@ function renderGnss(gnss) {
   const hasSample = Boolean(gnss && Number(gnss.updated_at) > 0);
   const position = valid && gnss.position ? gnss.position : {};
   const llh = hasSample && gnss.llh ? gnss.llh : {};
-  const accuracy = hasSample && gnss.accuracy ? gnss.accuracy : {};
   const covarianceValid = Boolean(gnss && gnss.covariance_valid);
   const positionCovariance = covarianceValid && gnss.position_covariance ? gnss.position_covariance : {};
   const origin = gnss && gnss.origin ? gnss.origin : null;
@@ -346,8 +343,6 @@ function renderGnss(gnss) {
   gpsLatValue.textContent = formatDegrees(llh.lat, hasSample);
   gpsLonValue.textContent = formatDegrees(llh.lon, hasSample);
   gpsHmslValue.textContent = formatMeters(llh.hmsl, hasSample);
-  gpsHaccValue.textContent = formatMeters(accuracy.horizontal, hasSample);
-  gpsVaccValue.textContent = formatMeters(accuracy.vertical, hasSample);
   gpsOriginValue.textContent = origin
     ? `${Number(origin.lat).toFixed(7)}, ${Number(origin.lon).toFixed(7)}`
     : "---";
