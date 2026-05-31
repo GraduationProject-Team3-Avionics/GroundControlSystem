@@ -6,6 +6,7 @@ class AltitudeTape {
     this.currentMeters = 0;
     this.pixelRatio = window.devicePixelRatio || 1;
     this.responseFactor = 0.22;
+    this.currentScale = null;
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
@@ -54,9 +55,10 @@ class AltitudeTape {
     const centerY = height / 2;
     const compact = height < 320;
     const verticalPadding = compact ? 10 : 18;
-    const pixelsPerMeter = compact ? 8 : 15;
-    const minorStep = 1;
-    const majorStep = 5;
+    const scale = this.scaleForAltitude(current, height, verticalPadding, compact);
+    const pixelsPerMeter = scale.pixelsPerMeter;
+    const minorStep = scale.minorStep;
+    const majorStep = scale.majorStep;
     const markerValue = this.target.valid ? this.target.meters : null;
     const markerLabel = this.formatValue(markerValue);
     const markerFont = "750 13px Segoe UI, Arial, sans-serif";
@@ -84,6 +86,7 @@ class AltitudeTape {
       majorStart,
       minorStart,
       labelX,
+      labelDecimals: scale.labelDecimals,
     });
 
     this.drawMarker(ctx, {
@@ -94,6 +97,89 @@ class AltitudeTape {
       font: markerFont,
     });
 
+  }
+
+  scaleForAltitude(current, height, verticalPadding, compact) {
+    const usableHeight = Math.max(120, height - verticalPadding * 2);
+    const visibleSpan = this.visibleSpanForAltitude(current);
+    const targetPixelsPerMeter = usableHeight / visibleSpan;
+
+    if (this.currentScale === null) {
+      this.currentScale = targetPixelsPerMeter;
+    } else {
+      this.currentScale += (targetPixelsPerMeter - this.currentScale) * 0.12;
+    }
+
+    const effectiveSpan = usableHeight / this.currentScale;
+    const majorStep = this.niceStep(effectiveSpan / (compact ? 5 : 6));
+    const minorStep = majorStep / 5;
+
+    return {
+      pixelsPerMeter: this.currentScale,
+      majorStep,
+      minorStep,
+      labelDecimals: this.decimalsForStep(majorStep),
+    };
+  }
+
+  visibleSpanForAltitude(current) {
+    const absoluteMeters = Math.abs(current);
+    const minimumSpan = 2.5;
+    const desiredSpan = Math.max(minimumSpan, absoluteMeters * 0.8 + minimumSpan);
+    return Math.min(250, this.niceCeil(desiredSpan));
+  }
+
+  niceCeil(value) {
+    if (!Number.isFinite(value) || value <= 0) {
+      return 2.5;
+    }
+
+    const exponent = Math.floor(Math.log10(value));
+    const base = 10 ** exponent;
+    const fraction = value / base;
+    const steps = [1, 1.5, 2, 2.5, 3, 5, 7.5, 10];
+
+    for (const step of steps) {
+      if (fraction <= step) {
+        return step * base;
+      }
+    }
+
+    return 10 * base;
+  }
+
+  niceStep(value) {
+    if (!Number.isFinite(value) || value <= 0) {
+      return 1;
+    }
+
+    const exponent = Math.floor(Math.log10(value));
+    const base = 10 ** exponent;
+    const fraction = value / base;
+    const steps = [1, 2, 2.5, 5, 10];
+
+    for (const step of steps) {
+      if (fraction <= step) {
+        return step * base;
+      }
+    }
+
+    return 10 * base;
+  }
+
+  decimalsForStep(step) {
+    if (!Number.isFinite(step)) {
+      return 0;
+    }
+
+    for (let decimals = 0; decimals <= 3; decimals += 1) {
+      const scale = 10 ** decimals;
+      if (Math.abs(Math.round(step * scale) - step * scale) < 1e-6) {
+        return decimals;
+      }
+    }
+
+    return 3;
   }
 
   drawTicks(ctx, layout) {
@@ -109,10 +195,12 @@ class AltitudeTape {
       majorStart,
       minorStart,
       labelX,
+      labelDecimals,
     } = layout;
     const minAltitude = current - (centerY - verticalPadding) / pixelsPerMeter - minorStep;
     const maxAltitude = current + (height - centerY - verticalPadding) / pixelsPerMeter + minorStep;
-    const firstTick = Math.floor(minAltitude / minorStep) * minorStep;
+    const firstTickIndex = Math.floor(minAltitude / minorStep);
+    const lastTickIndex = Math.ceil(maxAltitude / minorStep);
     const tickColor = this.css("--altitude-tick", "#58c7e8");
     const mutedTickColor = this.css("--altitude-tick-muted", "rgba(88, 199, 232, 0.38)");
     const labelColor = this.css("--text", "#eef3f8");
@@ -122,24 +210,26 @@ class AltitudeTape {
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
 
-    for (let altitude = firstTick; altitude <= maxAltitude; altitude += minorStep) {
+    for (let tickIndex = firstTickIndex; tickIndex <= lastTickIndex; tickIndex += 1) {
+      const altitude = tickIndex * minorStep;
       const y = centerY - (altitude - current) * pixelsPerMeter;
       if (y < verticalPadding || y > height - verticalPadding) {
         continue;
       }
 
       const isMajor = Math.abs(altitude / majorStep - Math.round(altitude / majorStep)) < 1e-6;
-      ctx.strokeStyle = isMajor ? tickColor : mutedTickColor;
-      ctx.lineWidth = isMajor ? 2 : 1;
+      const isZero = Math.abs(altitude) < minorStep * 0.5;
+      ctx.strokeStyle = isMajor || isZero ? tickColor : mutedTickColor;
+      ctx.lineWidth = isZero ? 2.5 : isMajor ? 2 : 1;
       ctx.beginPath();
-      ctx.moveTo(isMajor ? majorStart : minorStart, y);
+      ctx.moveTo(isMajor || isZero ? majorStart : minorStart, y);
       ctx.lineTo(tickEnd, y);
       ctx.stroke();
 
-      if (isMajor) {
+      if (isMajor || isZero) {
         ctx.fillStyle = labelColor;
         ctx.font = "650 11px Segoe UI, Arial, sans-serif";
-        ctx.fillText(String(Math.round(altitude)), labelX, y);
+        ctx.fillText(this.formatTickValue(altitude, labelDecimals), labelX, y);
       }
     }
 
@@ -196,6 +286,14 @@ class AltitudeTape {
     }
 
     return `${value.toFixed(2)} m`;
+  }
+
+  formatTickValue(value, decimals) {
+    if (Math.abs(value) < 1e-9) {
+      return "0";
+    }
+
+    return value.toFixed(decimals);
   }
 
   css(name, fallback) {

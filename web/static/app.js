@@ -42,6 +42,9 @@ const gpsStatus = document.querySelector("#gpsStatus");
 const gpsNedNValue = document.querySelector("#gpsNedNValue");
 const gpsNedEValue = document.querySelector("#gpsNedEValue");
 const gpsNedDValue = document.querySelector("#gpsNedDValue");
+const gpsSigmaNValue = document.querySelector("#gpsSigmaNValue");
+const gpsSigmaEValue = document.querySelector("#gpsSigmaEValue");
+const gpsSigmaDValue = document.querySelector("#gpsSigmaDValue");
 const gpsLatValue = document.querySelector("#gpsLatValue");
 const gpsLonValue = document.querySelector("#gpsLonValue");
 const gpsHmslValue = document.querySelector("#gpsHmslValue");
@@ -326,6 +329,8 @@ function renderGnss(gnss) {
   const position = valid && gnss.position ? gnss.position : {};
   const llh = hasSample && gnss.llh ? gnss.llh : {};
   const accuracy = hasSample && gnss.accuracy ? gnss.accuracy : {};
+  const covarianceValid = Boolean(gnss && gnss.covariance_valid);
+  const positionCovariance = covarianceValid && gnss.position_covariance ? gnss.position_covariance : {};
   const origin = gnss && gnss.origin ? gnss.origin : null;
   const fixType = gnss ? Number(gnss.fix_type) : 0;
 
@@ -335,6 +340,9 @@ function renderGnss(gnss) {
   gpsNedNValue.textContent = formatMeters(position.x, valid);
   gpsNedEValue.textContent = formatMeters(position.y, valid);
   gpsNedDValue.textContent = formatMeters(position.z, valid);
+  gpsSigmaNValue.textContent = formatStdDev(Number(positionCovariance.x), covarianceValid);
+  gpsSigmaEValue.textContent = formatStdDev(Number(positionCovariance.y), covarianceValid);
+  gpsSigmaDValue.textContent = formatStdDev(Number(positionCovariance.z), covarianceValid);
   gpsLatValue.textContent = formatDegrees(llh.lat, hasSample);
   gpsLonValue.textContent = formatDegrees(llh.lon, hasSample);
   gpsHmslValue.textContent = formatMeters(llh.hmsl, hasSample);

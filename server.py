@@ -58,6 +58,10 @@ GNSS_POSITION_PATTERN = re.compile(
     rf"vAcc=(?P<vacc>{FLOAT_PATTERN})\s*cm.*?"
     rf"relAlt=(?P<rel_alt>{FLOAT_PATTERN})\s*m"
 )
+GNSS_POSITION_COVARIANCE_PATTERN = re.compile(
+    rf"Pcov_xyz\(N,E,D\)=\[\s*(?P<cov_n>{FLOAT_PATTERN})\s*,\s*"
+    rf"(?P<cov_e>{FLOAT_PATTERN})\s*,\s*(?P<cov_d>{FLOAT_PATTERN})\s*\]"
+)
 WGS84_A = 6378137.0
 WGS84_E2 = 6.69437999014e-3
 
@@ -146,10 +150,13 @@ class SerialBridge:
             "llh": {"lat": 0.0, "lon": 0.0, "hmsl": 0.0},
             "position": {"x": 0.0, "y": 0.0, "z": 0.0},
             "accuracy": {"horizontal": 0.0, "vertical": 0.0},
+            "position_covariance": {"x": 0.0, "y": 0.0, "z": 0.0},
             "relative_altitude": 0.0,
             "origin": None,
             "valid": False,
+            "covariance_valid": False,
             "updated_at": 0.0,
+            "covariance_updated_at": 0.0,
         }
         self._version = 0
 
@@ -270,6 +277,7 @@ class SerialBridge:
         ekf_updated = self._update_ekf_state(message)
         ekf_covariance_updated = self._update_ekf_covariance(message)
         gnss_updated = self._update_gnss_position(message)
+        gnss_covariance_updated = self._update_gnss_covariance(message)
 
         if self._is_repeating_telemetry(message):
             self._suppressed_rx_count += 1
@@ -279,6 +287,7 @@ class SerialBridge:
                 and not ekf_updated
                 and not ekf_covariance_updated
                 and not gnss_updated
+                and not gnss_covariance_updated
             ):
                 self._mark_changed()
             return
@@ -364,6 +373,7 @@ class SerialBridge:
         vacc = float(match.group("vacc")) / 100.0
         rel_alt = float(match.group("rel_alt"))
         valid = fix_type >= 2 and lat != 0.0 and lon != 0.0
+        now = time.time()
 
         position = dict(self._gnss["position"])
         origin_snapshot = self._gnss["origin"]
@@ -395,17 +405,39 @@ class SerialBridge:
             "llh": {"lat": lat, "lon": lon, "hmsl": hmsl},
             "position": position,
             "accuracy": {"horizontal": hacc, "vertical": vacc},
+            "position_covariance": {
+                "x": hacc * hacc,
+                "y": hacc * hacc,
+                "z": vacc * vacc,
+            },
             "relative_altitude": rel_alt,
             "origin": origin_snapshot,
             "valid": valid,
-            "updated_at": time.time(),
+            "covariance_valid": valid and hacc >= 0.0 and vacc >= 0.0,
+            "updated_at": now,
+            "covariance_updated_at": now,
         }
+        self._mark_changed()
+        return True
+
+    def _update_gnss_covariance(self, message: str) -> bool:
+        match = GNSS_POSITION_COVARIANCE_PATTERN.search(message)
+        if match is None:
+            return False
+
+        self._gnss["position_covariance"] = {
+            "x": float(match.group("cov_n")),
+            "y": float(match.group("cov_e")),
+            "z": float(match.group("cov_d")),
+        }
+        self._gnss["covariance_valid"] = True
+        self._gnss["covariance_updated_at"] = time.time()
         self._mark_changed()
         return True
 
     @staticmethod
     def _is_repeating_telemetry(message: str) -> bool:
-        return message.startswith(("[STATUS]", "[IMU]", "[GNSS]", "[EKF]", "[EKF_COV]"))
+        return message.startswith(("[STATUS]", "[IMU]", "[GNSS]", "[EKF]", "[EKF_COV]", "GPS "))
 
     def _snapshot_locked(self) -> dict:
         connected = self._serial is not None and self._serial.is_open
@@ -441,10 +473,13 @@ class SerialBridge:
             "llh": dict(self._gnss["llh"]),
             "position": dict(self._gnss["position"]),
             "accuracy": dict(self._gnss["accuracy"]),
+            "position_covariance": dict(self._gnss["position_covariance"]),
             "relative_altitude": self._gnss["relative_altitude"],
             "origin": dict(self._gnss["origin"]) if self._gnss["origin"] is not None else None,
             "valid": self._gnss["valid"],
+            "covariance_valid": self._gnss["covariance_valid"],
             "updated_at": self._gnss["updated_at"],
+            "covariance_updated_at": self._gnss["covariance_updated_at"],
         }
 
     def _mark_changed(self) -> None:
