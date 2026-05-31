@@ -66,9 +66,15 @@
               <button id="sendMotorButton" type="button">Motor Test</button>
             </div>
 
+            <div class="commandRow">
+              <label for="altitudeTargetInput">Alt cm</label>
+              <input id="altitudeTargetInput" type="number" min="-500" max="2000" step="1" value="120">
+              <button id="sendAltitudeButton" type="button">Set Alt</button>
+            </div>
+
             <form id="customCommandForm" class="commandRow">
               <label for="customCommandInput">Custom</label>
-              <input id="customCommandInput" type="text" placeholder="help, pwm 1200, mt 1100">
+              <input id="customCommandInput" type="text" placeholder="help, pwm 1200, alt 120, mt 1100">
               <button type="submit">Send</button>
             </form>
 

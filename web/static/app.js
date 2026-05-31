@@ -6,7 +6,9 @@ const refreshPortsButton = document.querySelector("#refreshPortsButton");
 const connectionText = document.querySelector("#connectionText");
 const messageText = document.querySelector("#messageText");
 const pwmInput = document.querySelector("#pwmInput");
+const altitudeTargetInput = document.querySelector("#altitudeTargetInput");
 const sendPwmButton = document.querySelector("#sendPwmButton");
+const sendAltitudeButton = document.querySelector("#sendAltitudeButton");
 const sendMotorButton = document.querySelector("#sendMotorButton");
 const landButton = document.querySelector("#landButton");
 const customCommandForm = document.querySelector("#customCommandForm");
@@ -55,8 +57,8 @@ let lastPlottedEkfAt = null;
 let landingRunId = 0;
 let landingActive = false;
 const MAX_VISIBLE_LOGS = 12;
-const LAND_TARGET_PWM = 1350;
-const LAND_STEP_PWM = 10;
+const LAND_TARGET_PWM = 1400;
+const LAND_STEP_PWM = 30;
 const LAND_STEP_INTERVAL_MS = 700;
 const THEME_STORAGE_KEY = "gcs-theme";
 const PLOT_VISIBILITY_STORAGE_KEY = "gcs-plot-visibility";
@@ -381,6 +383,22 @@ function readPwmInput() {
   return pwm;
 }
 
+function readAltitudeTargetCm() {
+  const rawValue = Number(altitudeTargetInput.value);
+  if (!Number.isFinite(rawValue)) {
+    throw new Error("Target altitude must be a number of centimeters");
+  }
+
+  const min = Number(altitudeTargetInput.min || -500);
+  const max = Number(altitudeTargetInput.max || 2000);
+  const altitudeCm = Math.round(rawValue);
+  if (altitudeCm < min || altitudeCm > max) {
+    throw new Error(`Target altitude must be between ${min} cm and ${max} cm`);
+  }
+
+  return altitudeCm;
+}
+
 function setLandingActive(active) {
   landingActive = active;
   landButton.disabled = active;
@@ -492,6 +510,13 @@ async function sendPwmValue(pwm) {
   pwmInput.value = String(pwm);
 }
 
+async function sendAltitudeTargetValue(altitudeCm) {
+  cancelLandingSequence();
+  const roundedAltitudeCm = Math.round(altitudeCm);
+  await postCommand(`alt ${roundedAltitudeCm}`);
+  altitudeTargetInput.value = String(roundedAltitudeCm);
+}
+
 async function runLandingSequence() {
   cancelLandingSequence();
 
@@ -579,6 +604,17 @@ disconnectButton.addEventListener("click", async () => {
 sendPwmButton.addEventListener("click", async () => {
   try {
     await sendCommand(`pwm ${readPwmInput()}`);
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+});
+
+sendAltitudeButton.addEventListener("click", async () => {
+  try {
+    const altitudeCm = readAltitudeTargetCm();
+    await sendAltitudeTargetValue(altitudeCm);
+    setMessage(`Sent AltHold target: ${altitudeCm} cm`, "ok");
+    await refreshStatus();
   } catch (error) {
     setMessage(error.message, "error");
   }

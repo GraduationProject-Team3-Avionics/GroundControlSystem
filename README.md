@@ -95,11 +95,13 @@ python .\server.py --host 0.0.0.0 --port COM8 --baud 115200
 | Disarm | `disarm` |
 | Hover | `hover` |
 | Alt Hold | `althold` |
+| Alt Hold with target | `althold CM` |
 | Offboard | `offboard` |
 | Emergency Hover | `ehover` |
 | Emergency Land | `eland` |
 | Emergency Disarm | `edisarm` |
 | Send PWM | `pwm N` |
+| Set Altitude | `alt CM` |
 | Motor Test | `mt N` |
 
 ## Troubleshooting

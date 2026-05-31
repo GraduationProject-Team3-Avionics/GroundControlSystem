@@ -101,8 +101,8 @@ enum class CommandId : uint8_t
   // param1~param4 = M1~M4 PWM pulse width in microseconds.
   MotorTest = 0x30,
 
-  // FC uses this only while armed and in Hover/EmergencyHover mode.
-  // param1 = base throttle PWM pulse width in microseconds.
+  // Hover/EmergencyHover: param1 = base throttle PWM pulse width in microseconds.
+  // AltHold: param1 = target altitude in centimeters.
   SetBaseThrottle = 0x31
 };
 
@@ -133,6 +133,10 @@ enum class EmergencyState : uint8_t
 
 constexpr uint8_t TargetSystemBroadcast = 0x00;
 constexpr uint8_t TargetSystemFlightController = 0x01;
+
+constexpr uint16_t CommandFlagRequireAck = 1U << 0U;
+constexpr uint16_t CommandFlagRepeat = 1U << 1U;
+constexpr uint16_t CommandFlagAltitudeTargetValid = 1U << 2U;
 
 constexpr uint16_t StatusFlagImuValid      = 1U << 0U;
 constexpr uint16_t StatusFlagBaroValid     = 1U << 1U;
@@ -312,6 +316,7 @@ struct GcsCommand
   int16_t param2;
   int16_t param3;
   int16_t param4;
+  uint16_t flags;
   uint8_t repeatCount;
   uint16_t gapMs;
   bool logTx;
@@ -537,13 +542,15 @@ void printHelp()
   Serial.println("arm       : arm drone, burst TX");
   Serial.println("disarm    : disarm drone, burst TX");
   Serial.println("hover     : set hover mode, burst TX");
-  Serial.println("althold   : set altitude hold mode, burst TX");
+  Serial.println("althold   : set altitude hold mode at current altitude, burst TX");
+  Serial.println("althold CM: set altitude hold mode with target altitude in cm");
   Serial.println("offboard  : set offboard mode, burst TX");
   Serial.println("ehover    : emergency hover, burst TX");
   Serial.println("eland     : emergency land, burst TX");
   Serial.println("edisarm   : emergency disarm, burst TX");
   Serial.println("1000~2000 : set FC base throttle, requires arm + hover");
   Serial.println("pwm N     : same as numeric base throttle command");
+  Serial.println("alt CM    : set AltHold target altitude in cm");
   Serial.println("mt N      : direct MotorTest PWM, requires armed state");
   Serial.println("motor N   : same as mt N");
   Serial.println("==================================");
@@ -558,6 +565,7 @@ bool sendCommandRaw(CommandId commandId,
                     int16_t param2,
                     int16_t param3,
                     int16_t param4,
+                    uint16_t flags,
                     uint8_t* outSequence)
 {
   uint8_t packet[PACKET_SIZE] = {0};
@@ -569,7 +577,7 @@ bool sendCommandRaw(CommandId commandId,
 
   commandPacket->commandId = static_cast<uint8_t>(commandId);
   commandPacket->targetSystem = TargetSystemFlightController;
-  commandPacket->flags = 0;
+  commandPacket->flags = flags;
 
   commandPacket->param1 = param1;
   commandPacket->param2 = param2;
@@ -602,7 +610,8 @@ bool enqueueCommand(CommandId commandId,
                     int16_t param1 = 0,
                     int16_t param2 = 0,
                     int16_t param3 = 0,
-                    int16_t param4 = 0)
+                    int16_t param4 = 0,
+                    uint16_t flags = 0)
 {
   if (g_commandQueue == nullptr)
   {
@@ -615,6 +624,7 @@ bool enqueueCommand(CommandId commandId,
   command.param2 = param2;
   command.param3 = param3;
   command.param4 = param4;
+  command.flags = flags;
   command.repeatCount = (repeatCount == 0U) ? 1U : repeatCount;
   command.gapMs = gapMs;
   command.logTx = logTx;
@@ -943,6 +953,36 @@ bool isDecimalNumber(const String& input)
   return true;
 }
 
+bool isSignedIntegerNumber(const String& input)
+{
+  if (input.length() == 0)
+  {
+    return false;
+  }
+
+  bool hasDigit = false;
+
+  for (uint16_t i = 0; i < input.length(); ++i)
+  {
+    const char c = input.charAt(i);
+
+    if ((c >= '0') && (c <= '9'))
+    {
+      hasDigit = true;
+      continue;
+    }
+
+    if (((c == '-') || (c == '+')) && (i == 0U))
+    {
+      continue;
+    }
+
+    return false;
+  }
+
+  return hasDigit;
+}
+
 int clampMotorPwm(int pwm)
 {
   if (pwm < 1000)
@@ -956,6 +996,21 @@ int clampMotorPwm(int pwm)
   }
 
   return pwm;
+}
+
+int16_t clampAltitudeCm(long altitudeCm)
+{
+  if (altitudeCm < -32768L)
+  {
+    return -32768;
+  }
+
+  if (altitudeCm > 32767L)
+  {
+    return 32767;
+  }
+
+  return static_cast<int16_t>(altitudeCm);
 }
 
 bool parseCommandValue(const String& input, const char* prefix, int* value)
@@ -996,6 +1051,44 @@ bool parseCommandValue(const String& input, const char* prefix, int* value)
   return true;
 }
 
+bool parseAltitudeCmCommand(const String& input, const char* prefix, int16_t* altitudeCm)
+{
+  if ((prefix == nullptr) || (altitudeCm == nullptr))
+  {
+    return false;
+  }
+
+  String prefixString(prefix);
+  String remainder;
+
+  if (input == prefixString)
+  {
+    return false;
+  }
+
+  if (input.startsWith(prefixString + " "))
+  {
+    remainder = input.substring(prefixString.length() + 1);
+  }
+  else if (input.startsWith(prefixString + "="))
+  {
+    remainder = input.substring(prefixString.length() + 1);
+  }
+  else
+  {
+    return false;
+  }
+
+  remainder.trim();
+  if (!isSignedIntegerNumber(remainder))
+  {
+    return false;
+  }
+
+  *altitudeCm = clampAltitudeCm(remainder.toInt());
+  return true;
+}
+
 bool enqueueBaseThrottleCommand(int pwm)
 {
   return enqueueCommand(CommandId::SetBaseThrottle,
@@ -1004,6 +1097,30 @@ bool enqueueBaseThrottleCommand(int pwm)
                         true,
                         true,
                         static_cast<int16_t>(clampMotorPwm(pwm)));
+}
+
+bool enqueueAltHoldCommand(bool hasTarget, int16_t targetAltitudeCm)
+{
+  return enqueueCommand(CommandId::SetAltHold,
+                        COMMAND_BURST_REPEAT,
+                        COMMAND_BURST_GAP_MS,
+                        true,
+                        true,
+                        targetAltitudeCm,
+                        0,
+                        0,
+                        0,
+                        hasTarget ? CommandFlagAltitudeTargetValid : 0U);
+}
+
+bool enqueueAltHoldTargetCommand(int16_t targetAltitudeCm)
+{
+  return enqueueCommand(CommandId::SetBaseThrottle,
+                        COMMAND_BURST_REPEAT,
+                        COMMAND_BURST_GAP_MS,
+                        true,
+                        true,
+                        targetAltitudeCm);
 }
 
 bool enqueueMotorTestCommand(int basePwm)
@@ -1057,6 +1174,7 @@ void parseSerialLine(const char* line)
 
   bool queued = true;
   int parsedPwm = 0;
+  int16_t parsedAltitudeCm = 0;
 
   if (input == "help")
   {
@@ -1093,6 +1211,15 @@ void parseSerialLine(const char* line)
     Serial.println(parsedPwm);
     UnlockSerial();
   }
+  else if (parseAltitudeCmCommand(input, "alt", &parsedAltitudeCm))
+  {
+    queued = enqueueAltHoldTargetCommand(parsedAltitudeCm);
+
+    LockSerial();
+    Serial.print("[CMD] SetAltHold target_cm=");
+    Serial.println(parsedAltitudeCm);
+    UnlockSerial();
+  }
   else if (input == "hb")
   {
     queued = enqueueCommand(CommandId::Heartbeat, 1, 0, true, false);
@@ -1111,7 +1238,16 @@ void parseSerialLine(const char* line)
   }
   else if (input == "althold")
   {
-    queued = enqueueCommand(CommandId::SetAltHold, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
+    queued = enqueueAltHoldCommand(false, 0);
+  }
+  else if (parseAltitudeCmCommand(input, "althold", &parsedAltitudeCm))
+  {
+    queued = enqueueAltHoldCommand(true, parsedAltitudeCm);
+
+    LockSerial();
+    Serial.print("[CMD] SetAltHold target_cm=");
+    Serial.println(parsedAltitudeCm);
+    UnlockSerial();
   }
   else if (input == "offboard")
   {
@@ -1240,6 +1376,7 @@ void CommandTxTask(void* argument)
                                          command.param2,
                                          command.param3,
                                          command.param4,
+                                         command.flags,
                                          &lastSequence);
 
           anyOk = anyOk || ok;
@@ -1267,6 +1404,11 @@ void CommandTxTask(void* argument)
         LockSerial();
         Serial.print("[TX CMD] ");
         Serial.print(commandIdToString(command.commandId));
+        if (command.flags != 0U)
+        {
+          Serial.print(" flags=0x");
+          Serial.print(command.flags, HEX);
+        }
         Serial.print(" repeat=");
         Serial.print(command.repeatCount);
         Serial.print(" lastSeq=");

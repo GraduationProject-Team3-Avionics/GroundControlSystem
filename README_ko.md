@@ -76,12 +76,14 @@ python server.py
 | Disarm | `disarm` |
 | Hover | `hover` |
 | Alt Hold | `althold` |
+| Alt Hold with target | `althold CM` |
 | Offboard | `offboard` |
 | Land | 현재 PWM 값에서 `1350`까지 `pwm N`을 서서히 전송 |
 | Emergency Hover | `ehover` |
 | Emergency Land | `eland` |
 | Emergency Disarm | `edisarm` |
 | Send PWM | `pwm N` |
+| Set Altitude | `alt CM` |
 | Motor Test | `mt N` |
 
 ## 참고
