@@ -90,7 +90,6 @@ python .\server.py --host 0.0.0.0 --port COM8 --baud 115200
 
 | UI | Sent command |
 | --- | --- |
-| Heartbeat | `hb` |
 | Arm | `arm` |
 | Disarm | `disarm` |
 | Hover | `hover` |
@@ -102,7 +101,6 @@ python .\server.py --host 0.0.0.0 --port COM8 --baud 115200
 | Emergency Disarm | `edisarm` |
 | Send PWM | `pwm N` |
 | Set Altitude | `alt CM` |
-| Motor Test | `mt N` |
 
 ## Troubleshooting
 

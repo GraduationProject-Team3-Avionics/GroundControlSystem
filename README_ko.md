@@ -12,8 +12,8 @@ Nano ESP32 기반 GCS 보드와 시리얼로 연결해서 드론 명령을 보�
 | --- | --- |
 | Altitude | 현재 고도를 세로 테이프 형태로 보여줍니다. 값은 `m` 단위입니다. |
 | 상단 연결 영역 | 테마 전환, COM 포트 선택, baud rate 설정, 포트 새로고침, 연결/해제를 합니다. |
-| Commands | Heartbeat, Arm, Disarm, Hover, Alt Hold, Land 같은 기본 동작을 버튼으로 실행합니다. |
-| PWM / Motor Test | PWM 값을 입력해서 `pwm N`, `mt N` 명령을 보냅니다. |
+| Commands | Arm, Disarm, Hover, Alt Hold, Land 같은 기본 동작을 버튼으로 실행합니다. |
+| PWM | PWM 값을 입력해서 `pwm N` 명령을 보냅니다. |
 | Custom | 직접 텍스트 명령을 입력해서 보낼 수 있습니다. 예: `help`, `pwm 1200` |
 | Attitude | IMU roll/pitch/yaw 값을 인공수평계와 heading 계기로 표시합니다. |
 | Recent Activity | TX/RX 로그와 최근 시스템 메시지를 보여줍니다. |
@@ -71,7 +71,6 @@ python server.py
 
 | UI | 전송 명령 |
 | --- | --- |
-| Heartbeat | `hb` |
 | Arm | `arm` |
 | Disarm | `disarm` |
 | Hover | `hover` |
@@ -84,7 +83,6 @@ python server.py
 | Emergency Disarm | `edisarm` |
 | Send PWM | `pwm N` |
 | Set Altitude | `alt CM` |
-| Motor Test | `mt N` |
 
 ## 참고
 
