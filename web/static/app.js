@@ -9,7 +9,6 @@ const pwmInput = document.querySelector("#pwmInput");
 const altitudeTargetInput = document.querySelector("#altitudeTargetInput");
 const sendPwmButton = document.querySelector("#sendPwmButton");
 const sendAltitudeButton = document.querySelector("#sendAltitudeButton");
-const sendMotorButton = document.querySelector("#sendMotorButton");
 const landButton = document.querySelector("#landButton");
 const customCommandForm = document.querySelector("#customCommandForm");
 const customCommandInput = document.querySelector("#customCommandInput");
@@ -513,6 +512,10 @@ async function sendPwmValue(pwm) {
   pwmInput.value = String(pwm);
 }
 
+async function sendCurrentPwm() {
+  await sendCommand(`pwm ${readPwmInput()}`);
+}
+
 async function sendAltitudeTargetValue(altitudeCm) {
   cancelLandingSequence();
   const roundedAltitudeCm = Math.round(altitudeCm);
@@ -606,7 +609,20 @@ disconnectButton.addEventListener("click", async () => {
 
 sendPwmButton.addEventListener("click", async () => {
   try {
-    await sendCommand(`pwm ${readPwmInput()}`);
+    await sendCurrentPwm();
+  } catch (error) {
+    setMessage(error.message, "error");
+  }
+});
+
+pwmInput.addEventListener("keydown", async (event) => {
+  if (event.key !== "Enter") {
+    return;
+  }
+
+  event.preventDefault();
+  try {
+    await sendCurrentPwm();
   } catch (error) {
     setMessage(error.message, "error");
   }
@@ -618,14 +634,6 @@ sendAltitudeButton.addEventListener("click", async () => {
     await sendAltitudeTargetValue(altitudeCm);
     setMessage(`Sent AltHold target: ${altitudeCm} cm`, "ok");
     await refreshStatus();
-  } catch (error) {
-    setMessage(error.message, "error");
-  }
-});
-
-sendMotorButton.addEventListener("click", async () => {
-  try {
-    await sendCommand(`mt ${readPwmInput()}`);
   } catch (error) {
     setMessage(error.message, "error");
   }

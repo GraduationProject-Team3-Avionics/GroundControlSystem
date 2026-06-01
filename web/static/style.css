@@ -418,10 +418,6 @@ h2 {
   margin-top: 14px;
 }
 
-.commandRow:has(#pwmInput) {
-  grid-template-columns: 72px 1fr auto auto;
-}
-
 label {
   color: var(--muted);
   font-size: 13px;
@@ -782,7 +778,6 @@ label {
 
 body[data-connected="false"] .buttonGrid button,
 body[data-connected="false"] #sendPwmButton,
-body[data-connected="false"] #sendMotorButton,
 body[data-connected="false"] #landButton,
 body[data-connected="false"] #customCommandForm button,
 body[data-connected="false"] #disconnectButton {
@@ -883,8 +878,7 @@ body[data-connected="false"] #disconnectButton {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .commandRow,
-  .commandRow:has(#pwmInput) {
+  .commandRow {
     grid-template-columns: 1fr;
   }
 
