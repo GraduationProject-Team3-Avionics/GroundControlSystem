@@ -13,6 +13,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist\installer
 OutputBaseFilename=GroundControlSystemSetup
+SetupIconFile=..\docs\STRIX_dark.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

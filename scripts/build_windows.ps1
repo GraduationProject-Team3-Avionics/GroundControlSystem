@@ -19,8 +19,18 @@ $AppExe = Join-Path $RepoRoot "dist\GroundControlSystem\GroundControlSystem.exe"
 Write-Host "Built app: $AppExe"
 
 $Inno = Get-Command iscc -ErrorAction SilentlyContinue
-if ($Inno) {
-    & $Inno.Source .\installer\GroundControlSystem.iss
+$InnoPath = if ($Inno) { $Inno.Source } else { $null }
+if (-not $InnoPath) {
+    $KnownInnoPaths = @(
+        (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
+        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
+    )
+    $InnoPath = $KnownInnoPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+
+if ($InnoPath) {
+    & $InnoPath .\installer\GroundControlSystem.iss
     $InstallerExe = Join-Path $RepoRoot "dist\installer\GroundControlSystemSetup.exe"
     Write-Host "Built installer: $InstallerExe"
 } else {
