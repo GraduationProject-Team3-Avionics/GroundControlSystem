@@ -5,7 +5,7 @@ import time
 import urllib.request
 import webbrowser
 from multiprocessing import freeze_support
-from typing import Optional
+from typing import Optional, Tuple
 
 from werkzeug.serving import make_server
 
@@ -15,8 +15,9 @@ from server import app, bridge
 APP_TITLE = "Ground Control System"
 DEFAULT_WINDOW_WIDTH = 1600
 DEFAULT_WINDOW_HEIGHT = 920
-MIN_WINDOW_WIDTH = 1240
-MIN_WINDOW_HEIGHT = 720
+MIN_WINDOW_WIDTH = 1080
+MIN_WINDOW_HEIGHT = 680
+WINDOW_SCREEN_MARGIN = 80
 
 
 class LocalWebServer:
@@ -97,14 +98,45 @@ def run_webview_mode(url: str, debug: bool) -> None:
             "pywebview is required for desktop mode. Install requirements-app.txt or run with --browser."
         ) from exc
 
+    window_width, window_height = window_size_for_display()
+
     webview.create_window(
         APP_TITLE,
         url,
-        width=DEFAULT_WINDOW_WIDTH,
-        height=DEFAULT_WINDOW_HEIGHT,
+        width=window_width,
+        height=window_height,
         min_size=(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT),
     )
     webview.start(debug=debug)
+
+
+def window_size_for_display() -> Tuple[int, int]:
+    screen_width, screen_height = display_size()
+    if screen_width is None or screen_height is None:
+        return DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT
+
+    available_width = max(MIN_WINDOW_WIDTH, screen_width - WINDOW_SCREEN_MARGIN)
+    available_height = max(MIN_WINDOW_HEIGHT, screen_height - WINDOW_SCREEN_MARGIN)
+
+    return (
+        min(DEFAULT_WINDOW_WIDTH, available_width),
+        min(DEFAULT_WINDOW_HEIGHT, available_height),
+    )
+
+
+def display_size() -> Tuple[Optional[int], Optional[int]]:
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        width = int(user32.GetSystemMetrics(0))
+        height = int(user32.GetSystemMetrics(1))
+        if width > 0 and height > 0:
+            return width, height
+    except Exception:
+        pass
+
+    return None, None
 
 
 def main() -> None:

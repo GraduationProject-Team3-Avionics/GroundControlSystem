@@ -128,8 +128,9 @@ select {
 }
 
 .shell {
-  width: 100%;
+  width: min(100%, 1760px);
   min-width: 0;
+  margin: 0 auto;
   padding: 22px 22px 28px;
   overflow: hidden;
 }
