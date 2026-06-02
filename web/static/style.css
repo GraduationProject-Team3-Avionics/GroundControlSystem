@@ -83,6 +83,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   background: var(--bg);
   color: var(--text);
   font-family: "Segoe UI", Arial, sans-serif;
@@ -92,6 +93,7 @@ button,
 input,
 select {
   height: 38px;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--button);
@@ -120,16 +122,16 @@ select {
 
 .appLayout {
   display: grid;
-  grid-template-columns: 198px minmax(0, 1fr);
-  gap: 18px;
-  width: min(1920px, calc(100vw - 32px));
-  margin: 0 auto;
+  grid-template-columns: 190px minmax(0, 1fr);
+  width: 100%;
+  min-height: 100vh;
 }
 
 .shell {
-  width: min(1680px, 100%);
-  margin: 0 auto;
-  padding: 24px 0;
+  width: 100%;
+  min-width: 0;
+  padding: 22px 22px 28px;
+  overflow: hidden;
 }
 
 .altitudeSidebar {
@@ -139,14 +141,15 @@ select {
   height: 100vh;
   min-height: 620px;
   flex-direction: column;
+  background: color-mix(in srgb, var(--panel-strong) 44%, var(--bg));
   border-right: 1px solid var(--border);
-  padding: 29px 10px 24px 0;
+  padding: 22px 14px 18px;
 }
 
 .altitudeSidebar h2 {
-  margin: 0 0 18px;
+  margin: 0 0 14px;
   color: var(--text);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 650;
   line-height: 1.2;
 }
@@ -164,11 +167,50 @@ select {
 
 .topbar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding-bottom: 18px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.brandLogoFrame {
+  display: inline-flex;
+  width: 96px;
+  height: 76px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.brandLogo {
+  display: block;
+  width: 96px;
+  height: 76px;
+  object-fit: contain;
+}
+
+.brandLogoDark {
+  display: none;
+}
+
+:root[data-theme="light"] .brandLogoLight {
+  display: none;
+}
+
+:root[data-theme="light"] .brandLogoDark {
+  display: block;
+}
+
+.brandText {
+  min-width: 0;
 }
 
 h1,
@@ -178,7 +220,7 @@ p {
 }
 
 h1 {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
 }
 
@@ -197,6 +239,7 @@ h2 {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+  min-width: 0;
 }
 
 .themeSwitch {
@@ -258,7 +301,7 @@ h2 {
   grid-template-areas:
     "commands attitude trajectory"
     "activity attitude trajectory";
-  grid-template-columns: minmax(340px, 400px) minmax(560px, 1fr) minmax(360px, 0.82fr);
+  grid-template-columns: minmax(276px, 0.72fr) minmax(0, 1.48fr) minmax(310px, 0.86fr);
   gap: 16px;
   margin-top: 18px;
 }
@@ -268,7 +311,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--panel);
-  padding: 16px;
+  padding: 14px;
 }
 
 .panelHeader {
@@ -314,12 +357,12 @@ h2 {
 .instrumentGrid {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(360px, 1fr) minmax(210px, 270px);
+  grid-template-columns: minmax(0, 1.1fr) minmax(150px, 0.62fr);
   align-items: start;
-  gap: 14px;
+  gap: 12px;
   min-height: 0;
-  margin-top: 14px;
-  --heading-canvas-offset: 48px;
+  margin-top: 12px;
+  --heading-canvas-offset: 34px;
 }
 
 .attitudeVelocityCard {
@@ -329,7 +372,7 @@ h2 {
 .attitudeCanvasWrap {
   position: relative;
   justify-self: center;
-  width: min(100%, 680px);
+  width: 100%;
   margin-top: var(--heading-canvas-offset);
   min-height: 0;
   overflow: hidden;
@@ -354,7 +397,7 @@ h2 {
 
 .headingHeader {
   display: flex;
-  min-height: 38px;
+  min-height: 32px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -368,8 +411,9 @@ h2 {
 
 .headingHeader strong {
   color: var(--text);
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 750;
+  white-space: nowrap;
 }
 
 .headingCanvasWrap {
@@ -390,15 +434,17 @@ h2 {
 .buttonGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 14px;
+  gap: 7px;
+  margin-top: 13px;
 }
 
 .buttonGrid button {
   width: 100%;
   min-width: 0;
-  padding: 0 8px;
+  height: 42px;
+  padding: 0 6px;
   font-size: 13px;
+  line-height: 1.15;
 }
 
 .buttonGrid button[data-command^="e"],
@@ -412,10 +458,10 @@ h2 {
 
 .commandRow {
   display: grid;
-  grid-template-columns: 72px 1fr auto;
+  grid-template-columns: 58px minmax(0, 1fr) minmax(78px, auto);
   align-items: center;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 label {
@@ -425,7 +471,7 @@ label {
 
 .message {
   min-height: 20px;
-  margin-top: 14px;
+  margin-top: 12px;
   color: var(--muted);
 }
 
@@ -440,7 +486,7 @@ label {
 .logPanel {
   grid-area: activity;
   display: flex;
-  min-height: 280px;
+  min-height: 248px;
   flex-direction: column;
 }
 
@@ -632,7 +678,7 @@ label {
 
 .plotCanvasWrap {
   margin-top: 8px;
-  min-height: 220px;
+  min-height: 170px;
   aspect-ratio: 2.15 / 1;
 }
 
@@ -675,7 +721,7 @@ label {
   flex: 1;
   margin-top: 8px;
   width: 100%;
-  min-height: 320px;
+  min-height: 300px;
 }
 
 .trajectoryCanvasWrap canvas {
@@ -756,13 +802,13 @@ label {
 }
 
 .velocityCanvasWrap {
-  min-height: 220px;
+  min-height: 170px;
 }
 
 #logOutput {
   flex: 0 0 auto;
   min-height: 0;
-  height: 218px;
+  height: 190px;
   margin: 14px 0 0;
   overflow: auto;
   border: 1px solid var(--border);
@@ -787,14 +833,14 @@ body[data-connected="false"] #disconnectButton {
 @media (max-width: 1500px) {
   .grid {
     grid-template-areas:
-      "commands attitude"
-      "activity attitude"
-      "trajectory trajectory";
-    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+      "attitude attitude"
+      "commands trajectory"
+      "activity trajectory";
+    grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
   }
 
   .trajectoryCanvasWrap {
-    min-height: 260px;
+    min-height: 280px;
   }
 }
 
@@ -813,6 +859,10 @@ body[data-connected="false"] #disconnectButton {
     padding: 18px 0;
   }
 
+  .shell {
+    padding: 18px;
+  }
+
   .altitudeSidebar h2 {
     margin-bottom: 10px;
     font-size: 18px;
@@ -824,6 +874,16 @@ body[data-connected="false"] #disconnectButton {
   .topbar {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .brandLogoFrame {
+    width: 84px;
+    height: 66px;
+  }
+
+  .brandLogo {
+    width: 84px;
+    height: 66px;
   }
 
   .connection {
@@ -840,11 +900,11 @@ body[data-connected="false"] #disconnectButton {
   }
 
   .attitudePanel {
-    min-height: 560px;
+    min-height: 0;
   }
 
   .instrumentGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
+    grid-template-columns: minmax(0, 1fr) minmax(170px, 250px);
   }
 
   .plotGrid {
@@ -865,6 +925,10 @@ body[data-connected="false"] #disconnectButton {
   .headingInstrument {
     width: min(100%, 320px);
     justify-self: center;
+  }
+
+  .attitudeCanvasWrap {
+    margin-top: 0;
   }
 }
 

@@ -57,6 +57,25 @@ pip install -r requirements.txt
 python server.py
 ```
 
+## Windows 데스크톱 앱
+
+QGroundControl처럼 별도 창으로 실행하려면 데스크톱 앱 런처를 사용할 수 있습니다. 내부적으로는 로컬 Flask 서버를 띄운 뒤 WebView 창에서 UI를 엽니다.
+
+개발 환경에서 실행합니다.
+
+```powershell
+pip install -r requirements-app.txt
+python .\desktop_app.py
+```
+
+EXE와 설치 프로그램을 빌드합니다.
+
+```powershell
+.\scripts\build_windows.ps1
+```
+
+빌드 결과는 `dist\GroundControlSystem\GroundControlSystem.exe`에 생성됩니다. Inno Setup이 설치되어 있으면 `dist\installer\GroundControlSystemSetup.exe`도 생성됩니다. 자세한 내용은 `docs\windows-app.md`를 참고합니다.
+
 ## 사용 순서
 
 1. Arduino IDE Serial Monitor를 닫습니다.

@@ -10,6 +10,10 @@ class AltitudeTape {
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
+    if ("ResizeObserver" in window) {
+      this.resizeObserver = new ResizeObserver(() => this.resize());
+      this.resizeObserver.observe(this.canvas.parentElement || this.canvas);
+    }
     requestAnimationFrame(() => this.frame());
   }
 
@@ -28,8 +32,8 @@ class AltitudeTape {
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    const width = Math.max(150, Math.floor(rect.width));
-    const height = Math.max(180, Math.floor(rect.height));
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height));
     this.pixelRatio = window.devicePixelRatio || 1;
     this.canvas.width = Math.floor(width * this.pixelRatio);
     this.canvas.height = Math.floor(height * this.pixelRatio);
@@ -64,10 +68,11 @@ class AltitudeTape {
     const markerFont = "750 13px Segoe UI, Arial, sans-serif";
     ctx.font = markerFont;
     const markerLabelWidth = ctx.measureText(markerLabel).width;
-    const markerSpace = width >= 180 ? Math.min(width - 64, Math.max(74, markerLabelWidth + 58)) : 48;
-    const tickEnd = Math.max(width >= 180 ? 64 : 88, width - markerSpace);
-    const majorStart = Math.max(44, tickEnd - Math.min(82, width * 0.4));
-    const minorStart = Math.min(tickEnd - 16, Math.max(majorStart + 24, tickEnd - 46));
+    const sideValue = width >= 154;
+    const markerSpace = sideValue ? Math.min(width - 56, Math.max(70, markerLabelWidth + 50)) : 46;
+    const tickEnd = sideValue ? Math.max(66, width - markerSpace) : Math.max(76, width - markerSpace);
+    const majorStart = Math.max(sideValue ? 38 : 34, tickEnd - Math.min(sideValue ? 68 : 56, width * 0.42));
+    const minorStart = Math.min(tickEnd - 14, Math.max(majorStart + 20, tickEnd - 34));
     const labelX = majorStart - 10;
 
     ctx.clearRect(0, 0, width, height);
@@ -95,6 +100,8 @@ class AltitudeTape {
       tickEnd,
       label: markerLabel,
       font: markerFont,
+      sideValue,
+      markerLabelWidth,
     });
 
   }
@@ -243,21 +250,22 @@ class AltitudeTape {
   }
 
   drawMarker(ctx, layout) {
-    const { width, centerY, tickEnd, label, font } = layout;
+    const { width, centerY, tickEnd, label, font, sideValue, markerLabelWidth } = layout;
     const markerColor = this.css("--altitude-marker", "#126e8d");
     const markerStroke = this.css("--altitude-marker-stroke", "#06151d");
     const textColor = this.css("--altitude-marker-text", "#eaf8ff");
-    const tipX = tickEnd + 8;
-    const sideValue = width >= 180;
-    const baseX = Math.min(width - (sideValue ? 48 : 10), tipX + 30);
+    const tipX = tickEnd + 7;
+    const labelWidth = Math.min(Math.max(markerLabelWidth + 12, 42), Math.max(42, width - 18));
+    const baseX = sideValue ? Math.min(width - labelWidth - 8, tipX + 28) : Math.min(width - 10, tipX + 28);
     const textX = sideValue ? width - 8 : width / 2;
-    const textMaxWidth = sideValue ? Math.max(32, width - baseX - 16) : Math.max(32, width - 16);
+    const textY = sideValue ? centerY : centerY + 34;
+    const textMaxWidth = sideValue ? Math.max(32, width - baseX - 12) : Math.max(32, width - 18);
 
     ctx.save();
     ctx.strokeStyle = markerColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(tickEnd - 48, centerY);
+    ctx.moveTo(Math.max(0, tickEnd - 42), centerY);
     ctx.lineTo(tipX, centerY);
     ctx.stroke();
 
@@ -272,11 +280,19 @@ class AltitudeTape {
     ctx.fill();
     ctx.stroke();
 
+    if (!sideValue) {
+      const pillWidth = Math.min(width - 16, Math.max(58, markerLabelWidth + 18));
+      const pillX = (width - pillWidth) / 2;
+      ctx.fillStyle = "rgba(6, 21, 29, 0.72)";
+      this.roundRectPath(ctx, pillX, textY - 14, pillWidth, 28, 6);
+      ctx.fill();
+    }
+
     ctx.fillStyle = textColor;
     ctx.font = font;
     ctx.textAlign = sideValue ? "right" : "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(label, textX, sideValue ? centerY : centerY + 42, textMaxWidth);
+    ctx.fillText(label, textX, textY, textMaxWidth);
     ctx.restore();
   }
 
@@ -298,5 +314,16 @@ class AltitudeTape {
 
   css(name, fallback) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+  }
+
+  roundRectPath(ctx, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + width, y, x + width, y + height, r);
+    ctx.arcTo(x + width, y + height, x, y + height, r);
+    ctx.arcTo(x, y + height, x, y, r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
   }
 }
