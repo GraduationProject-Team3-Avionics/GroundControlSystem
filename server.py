@@ -81,6 +81,30 @@ def llh_to_ecef(lat_deg: float, lon_deg: float, height_m: float) -> Tuple[float,
     return x, y, z
 
 
+def ecef_to_llh(ecef: Tuple[float, float, float]) -> dict:
+    x, y, z = ecef
+    lon = math.atan2(y, x)
+    p = math.hypot(x, y)
+    lat = math.atan2(z, p * (1.0 - WGS84_E2))
+    height = 0.0
+
+    for _ in range(6):
+        sin_lat = math.sin(lat)
+        radius = WGS84_A / math.sqrt(1.0 - WGS84_E2 * sin_lat * sin_lat)
+        height = p / math.cos(lat) - radius
+        lat = math.atan2(z, p * (1.0 - WGS84_E2 * radius / (radius + height)))
+
+    sin_lat = math.sin(lat)
+    radius = WGS84_A / math.sqrt(1.0 - WGS84_E2 * sin_lat * sin_lat)
+    height = p / math.cos(lat) - radius
+
+    return {
+        "lat": math.degrees(lat),
+        "lon": math.degrees(lon),
+        "hmsl": height,
+    }
+
+
 def ecef_to_ned(
     ecef: Tuple[float, float, float],
     origin_ecef: Tuple[float, float, float],
@@ -102,6 +126,27 @@ def ecef_to_ned(
         "y": -sin_lon * dx + cos_lon * dy,
         "z": -cos_lat * cos_lon * dx - cos_lat * sin_lon * dy - sin_lat * dz,
     }
+
+
+def ned_to_llh(north_m: float, east_m: float, down_m: float, origin: dict) -> dict:
+    lat = math.radians(origin["lat"])
+    lon = math.radians(origin["lon"])
+    sin_lat = math.sin(lat)
+    cos_lat = math.cos(lat)
+    sin_lon = math.sin(lon)
+    cos_lon = math.cos(lon)
+
+    dx = -sin_lat * cos_lon * north_m - sin_lon * east_m - cos_lat * cos_lon * down_m
+    dy = -sin_lat * sin_lon * north_m + cos_lon * east_m - cos_lat * sin_lon * down_m
+    dz = cos_lat * north_m - sin_lat * down_m
+
+    return ecef_to_llh(
+        (
+            origin["ecef"][0] + dx,
+            origin["ecef"][1] + dy,
+            origin["ecef"][2] + dz,
+        )
+    )
 
 
 @app.after_request
@@ -455,9 +500,15 @@ class SerialBridge:
         }
 
     def _ekf_snapshot_locked(self) -> dict:
+        geo = None
+        if self._ekf["valid"] and self._gnss_origin is not None:
+            position = self._ekf["position"]
+            geo = ned_to_llh(position["x"], position["y"], position["z"], self._gnss_origin)
+
         return {
             "frame": self._ekf["frame"],
             "position": dict(self._ekf["position"]),
+            "geo": geo,
             "velocity": dict(self._ekf["velocity"]),
             "position_covariance": dict(self._ekf["position_covariance"]),
             "valid": self._ekf["valid"],

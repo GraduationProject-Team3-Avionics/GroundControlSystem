@@ -14,6 +14,7 @@
         }
       })();
     </script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
@@ -146,6 +147,7 @@
                   <span>Y/E <strong id="trajectoryYValue">--- m</strong></span>
                 </div>
               </div>
+              <div id="trajectoryMap" class="trajectoryMap" aria-label="EKF trajectory map"></div>
               <div class="trajectoryCanvasWrap">
                 <canvas id="trajectoryCanvas" aria-label="EKF NED X Y trajectory"></canvas>
               </div>
@@ -295,6 +297,7 @@
     <script src="/static/altitude.js"></script>
     <script src="/static/attitude.js"></script>
     <script src="/static/plot.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="/static/app.js"></script>
   </body>
 </html>

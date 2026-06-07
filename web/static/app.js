@@ -27,6 +27,7 @@ const rollPlotCanvas = document.querySelector("#rollPlotCanvas");
 const pitchPlotCanvas = document.querySelector("#pitchPlotCanvas");
 const yawPlotCanvas = document.querySelector("#yawPlotCanvas");
 const ekfStatus = document.querySelector("#ekfStatus");
+const trajectoryMapElement = document.querySelector("#trajectoryMap");
 const trajectoryCanvas = document.querySelector("#trajectoryCanvas");
 const trajectoryXValue = document.querySelector("#trajectoryXValue");
 const trajectoryYValue = document.querySelector("#trajectoryYValue");
@@ -63,6 +64,10 @@ const LAND_STEP_INTERVAL_MS = 700;
 const THEME_STORAGE_KEY = "gcs-theme";
 const PLOT_VISIBILITY_STORAGE_KEY = "gcs-plot-visibility";
 const VELOCITY_VISIBILITY_STORAGE_KEY = "gcs-velocity-visibility";
+const DEFAULT_MAP_CENTER = [37.5665, 126.9780];
+const DEFAULT_MAP_ZOOM = 13;
+const EKF_MAP_ZOOM = 18;
+const EKF_MAP_MAX_POINTS = 1600;
 const altitudeTape = new AltitudeTape(altitudeCanvas);
 const attitudeIndicator = new AttitudeIndicator(attitudeCanvas);
 const headingIndicator = new HeadingIndicator(headingCanvas);
@@ -83,6 +88,12 @@ const velocityPlot = new RealtimeMultiLinePlot(velocityPlotCanvas, {
 });
 const plotToggleInputs = document.querySelectorAll("[data-plot-toggle]");
 const velocityToggleInputs = document.querySelectorAll("[data-velocity-toggle]");
+let trajectoryMap = null;
+let trajectoryTrack = null;
+let trajectoryStartMarker = null;
+let trajectoryCurrentMarker = null;
+let trajectoryMapPoints = [];
+let trajectoryMapCentered = false;
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -94,6 +105,150 @@ async function api(path, options = {}) {
     throw new Error(payload.error || "Request failed");
   }
   return payload;
+}
+
+function readCssValue(name, fallback) {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function initializeTrajectoryMap() {
+  if (!trajectoryMapElement || typeof L === "undefined") {
+    if (trajectoryMapElement) {
+      trajectoryMapElement.hidden = true;
+    }
+    return;
+  }
+
+  trajectoryMap = L.map(trajectoryMapElement, {
+    preferCanvas: true,
+    zoomControl: true,
+  }).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(trajectoryMap);
+
+  trajectoryTrack = L.polyline([], {
+    color: readCssValue("--trajectory-line", "#2fbf8f"),
+    opacity: 0.92,
+    weight: 3,
+  }).addTo(trajectoryMap);
+
+  scheduleTrajectoryMapResize();
+}
+
+function scheduleTrajectoryMapResize() {
+  if (!trajectoryMap) {
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    trajectoryMap.invalidateSize();
+  });
+}
+
+function refreshTrajectoryMapStyle() {
+  if (!trajectoryTrack) {
+    return;
+  }
+
+  trajectoryTrack.setStyle({
+    color: readCssValue("--trajectory-line", "#2fbf8f"),
+  });
+}
+
+function isValidCoordinate(lat, lon) {
+  return (
+    Number.isFinite(lat)
+    && Number.isFinite(lon)
+    && Math.abs(lat) <= 90
+    && Math.abs(lon) <= 180
+    && (lat !== 0 || lon !== 0)
+  );
+}
+
+function updateTrajectoryMapFromEkf(ekf) {
+  if (!trajectoryMap || !trajectoryTrack || !ekf || !ekf.geo) {
+    return;
+  }
+
+  const lat = Number(ekf.geo.lat);
+  const lon = Number(ekf.geo.lon);
+  if (!isValidCoordinate(lat, lon)) {
+    return;
+  }
+
+  const point = L.latLng(lat, lon);
+  const lastPoint = trajectoryMapPoints[trajectoryMapPoints.length - 1];
+  if (lastPoint && Math.abs(lastPoint.lat - point.lat) < 1e-10 && Math.abs(lastPoint.lng - point.lng) < 1e-10) {
+    trajectoryMapPoints[trajectoryMapPoints.length - 1] = point;
+  } else {
+    trajectoryMapPoints.push(point);
+  }
+
+  if (trajectoryMapPoints.length > EKF_MAP_MAX_POINTS) {
+    trajectoryMapPoints = trajectoryMapPoints.slice(-EKF_MAP_MAX_POINTS);
+  }
+
+  trajectoryTrack.setLatLngs(trajectoryMapPoints);
+  updateTrajectoryMarkers(point);
+
+  if (!trajectoryMapCentered) {
+    trajectoryMap.setView(point, EKF_MAP_ZOOM);
+    trajectoryMapCentered = true;
+    return;
+  }
+
+  if (!trajectoryMap.getBounds().contains(point)) {
+    trajectoryMap.panTo(point, { animate: false });
+  }
+}
+
+function updateTrajectoryMarkers(point) {
+  const startPoint = trajectoryMapPoints[0] || point;
+
+  if (!trajectoryStartMarker) {
+    trajectoryStartMarker = L.circleMarker(startPoint, {
+      color: "#9b6b00",
+      fillColor: readCssValue("--trajectory-start", "#ffd166"),
+      fillOpacity: 0.95,
+      radius: 4,
+      weight: 2,
+    }).addTo(trajectoryMap);
+  } else {
+    trajectoryStartMarker.setLatLng(startPoint);
+  }
+
+  if (!trajectoryCurrentMarker) {
+    trajectoryCurrentMarker = L.circleMarker(point, {
+      color: "#126eae",
+      fillColor: readCssValue("--trajectory-current", "#42a5ff"),
+      fillOpacity: 0.95,
+      radius: 5,
+      weight: 2,
+    }).addTo(trajectoryMap);
+  } else {
+    trajectoryCurrentMarker.setLatLng(point);
+  }
+}
+
+function updateTrajectoryMapFromGnss(gnss) {
+  if (!trajectoryMap || trajectoryMapCentered || !gnss) {
+    return;
+  }
+
+  const origin = gnss.origin || (gnss.valid ? gnss.llh : null);
+  if (!origin) {
+    return;
+  }
+
+  const lat = Number(origin.lat);
+  const lon = Number(origin.lon);
+  if (isValidCoordinate(lat, lon)) {
+    trajectoryMap.setView([lat, lon], 17);
+  }
 }
 
 function setMessage(text, kind = "") {
@@ -317,6 +472,7 @@ function renderEkf(ekf) {
 
   lastPlottedEkfAt = sampleTime;
   trajectoryPlot.addSample(sampleTime, positionX, positionY);
+  updateTrajectoryMapFromEkf(ekf);
   velocityPlot.addSample(sampleTime, { x: velocityX, y: velocityY, z: velocityZ });
 }
 
@@ -345,6 +501,7 @@ function renderGnss(gnss) {
   gpsOriginValue.textContent = origin
     ? `${Number(origin.lat).toFixed(7)}, ${Number(origin.lon).toFixed(7)}`
     : "---";
+  updateTrajectoryMapFromGnss(gnss);
 }
 
 function normalizeDegrees(value) {
@@ -671,6 +828,8 @@ themeToggleButton.addEventListener("click", () => {
   Object.values(attitudePlots).forEach((plot) => plot.scheduleDraw());
   trajectoryPlot.scheduleDraw();
   velocityPlot.scheduleDraw();
+  refreshTrajectoryMapStyle();
+  scheduleTrajectoryMapResize();
 });
 
 async function boot() {
@@ -684,6 +843,7 @@ async function boot() {
 }
 
 applyTheme(document.documentElement.dataset.theme);
+initializeTrajectoryMap();
 bindPlotToggles();
 bindVelocityToggles();
 boot();

@@ -718,10 +718,38 @@ label {
   font-weight: 750;
 }
 
-.trajectoryCanvasWrap {
+.trajectoryMap {
   flex: 1;
   margin-top: 8px;
   width: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #101820;
+}
+
+.trajectoryMap[hidden] {
+  display: none;
+}
+
+.trajectoryMap .leaflet-control-attribution {
+  font-size: 10px;
+}
+
+.trajectoryMap .leaflet-control-zoom a {
+  color: #111827;
+}
+
+.trajectoryCanvasWrap {
+  flex: 0 0 170px;
+  margin-top: 8px;
+  width: 100%;
+  min-height: 160px;
+}
+
+.trajectoryMap[hidden] + .trajectoryCanvasWrap {
+  flex: 1;
   min-height: 300px;
 }
 
@@ -840,7 +868,15 @@ body[data-connected="false"] #disconnectButton {
     grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
   }
 
+  .trajectoryMap {
+    min-height: 300px;
+  }
+
   .trajectoryCanvasWrap {
+    min-height: 150px;
+  }
+
+  .trajectoryMap[hidden] + .trajectoryCanvasWrap {
     min-height: 280px;
   }
 }
