@@ -428,7 +428,7 @@ class TrajectoryPlot extends RealtimeLinePlot {
       return;
     }
 
-    const range = this.positionRange();
+    const range = this.positionRange(plotWidth / plotHeight);
     const xToCanvas = (value) => padding.left + ((value - range.xMin) / (range.xMax - range.xMin)) * plotWidth;
     const yToCanvas = (value) => padding.top + (1 - ((value - range.yMin) / (range.yMax - range.yMin))) * plotHeight;
 
@@ -462,7 +462,7 @@ class TrajectoryPlot extends RealtimeLinePlot {
     ctx.restore();
   }
 
-  positionRange() {
+  positionRange(plotAspect = 1) {
     let xMin = this.samples[0].x;
     let xMax = this.samples[0].x;
     let yMin = this.samples[0].y;
@@ -479,8 +479,15 @@ class TrajectoryPlot extends RealtimeLinePlot {
     const yCenter = (yMin + yMax) / 2;
     const xSpan = Math.max(xMax - xMin, 2);
     const ySpan = Math.max(yMax - yMin, 2);
-    const paddedXSpan = xSpan * 1.18;
-    const paddedYSpan = ySpan * 1.18;
+    let paddedXSpan = xSpan * 1.18;
+    let paddedYSpan = ySpan * 1.18;
+    const safePlotAspect = Number.isFinite(plotAspect) && plotAspect > 0 ? plotAspect : 1;
+
+    if (paddedXSpan / paddedYSpan > safePlotAspect) {
+      paddedYSpan = paddedXSpan / safePlotAspect;
+    } else {
+      paddedXSpan = paddedYSpan * safePlotAspect;
+    }
 
     return {
       xMin: xCenter - paddedXSpan / 2,

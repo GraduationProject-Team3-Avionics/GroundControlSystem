@@ -719,10 +719,11 @@ label {
 }
 
 .trajectoryMap {
-  flex: 1;
+  flex: 1 1 260px;
   margin-top: 8px;
   width: 100%;
-  min-height: 320px;
+  min-height: 240px;
+  max-height: 340px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -742,10 +743,10 @@ label {
 }
 
 .trajectoryCanvasWrap {
-  flex: 0 0 170px;
+  flex: 0.9 1 210px;
   margin-top: 8px;
   width: 100%;
-  min-height: 160px;
+  min-height: 190px;
 }
 
 .trajectoryMap[hidden] + .trajectoryCanvasWrap {
@@ -869,11 +870,14 @@ body[data-connected="false"] #disconnectButton {
   }
 
   .trajectoryMap {
-    min-height: 300px;
+    flex-basis: 250px;
+    min-height: 230px;
+    max-height: 320px;
   }
 
   .trajectoryCanvasWrap {
-    min-height: 150px;
+    flex-basis: 200px;
+    min-height: 180px;
   }
 
   .trajectoryMap[hidden] + .trajectoryCanvasWrap {
@@ -951,6 +955,17 @@ body[data-connected="false"] #disconnectButton {
   .attitudeCanvasWrap {
     min-height: 320px;
   }
+
+  .trajectoryMap {
+    flex-basis: 280px;
+    min-height: 240px;
+    max-height: 360px;
+  }
+
+  .trajectoryCanvasWrap {
+    flex-basis: 220px;
+    min-height: 190px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -993,6 +1008,16 @@ body[data-connected="false"] #disconnectButton {
 
   .attitudeCanvasWrap {
     min-height: 280px;
+  }
+
+  .trajectoryMap {
+    flex-basis: 230px;
+    min-height: 220px;
+  }
+
+  .trajectoryCanvasWrap {
+    flex-basis: 180px;
+    min-height: 170px;
   }
 
   .trajectoryCard .plotHeader,
