@@ -302,7 +302,7 @@ h2 {
   grid-template-areas:
     "commands attitude trajectory"
     "activity attitude trajectory";
-  grid-template-columns: minmax(276px, 0.72fr) minmax(0, 1.48fr) minmax(310px, 0.86fr);
+  grid-template-columns: minmax(276px, 0.72fr) minmax(360px, 1.2fr) minmax(360px, 1.14fr);
   gap: 16px;
   margin-top: 18px;
 }
@@ -358,12 +358,12 @@ h2 {
 .instrumentGrid {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(0, 1.1fr) minmax(150px, 0.62fr);
+  grid-template-columns: minmax(0, 4fr) minmax(132px, 3fr);
   align-items: start;
   gap: 12px;
   min-height: 0;
   margin-top: 12px;
-  --heading-canvas-offset: 34px;
+  --heading-canvas-offset: 42px;
 }
 
 .attitudeVelocityCard {
@@ -719,11 +719,11 @@ label {
 }
 
 .trajectoryMap {
-  flex: 1 1 260px;
-  margin-top: 8px;
-  width: 100%;
-  min-height: 240px;
-  max-height: 340px;
+  flex: 0 0 auto;
+  margin: 8px auto 0;
+  width: min(100%, 640px);
+  min-height: 0;
+  aspect-ratio: 2 / 1;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -743,15 +743,16 @@ label {
 }
 
 .trajectoryCanvasWrap {
-  flex: 0.9 1 210px;
-  margin-top: 8px;
-  width: 100%;
-  min-height: 190px;
+  flex: 0 0 auto;
+  margin: 8px auto 0;
+  width: min(100%, 640px);
+  min-height: 0;
+  aspect-ratio: 2 / 1;
 }
 
 .trajectoryMap[hidden] + .trajectoryCanvasWrap {
-  flex: 1;
-  min-height: 300px;
+  width: min(100%, 560px);
+  aspect-ratio: 4 / 3;
 }
 
 .trajectoryCanvasWrap canvas {
@@ -866,22 +867,22 @@ body[data-connected="false"] #disconnectButton {
       "attitude attitude"
       "commands trajectory"
       "activity trajectory";
-    grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
+    grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
   }
 
   .trajectoryMap {
-    flex-basis: 250px;
-    min-height: 230px;
-    max-height: 320px;
+    flex-basis: auto;
+    min-height: 0;
+    max-height: none;
   }
 
   .trajectoryCanvasWrap {
-    flex-basis: 200px;
-    min-height: 180px;
+    flex-basis: auto;
+    min-height: 0;
   }
 
   .trajectoryMap[hidden] + .trajectoryCanvasWrap {
-    min-height: 280px;
+    min-height: 0;
   }
 }
 
@@ -945,7 +946,7 @@ body[data-connected="false"] #disconnectButton {
   }
 
   .instrumentGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(170px, 250px);
+    grid-template-columns: minmax(0, 4fr) minmax(0, 3fr);
   }
 
   .plotGrid {
@@ -953,18 +954,18 @@ body[data-connected="false"] #disconnectButton {
   }
 
   .attitudeCanvasWrap {
-    min-height: 320px;
+    min-height: 0;
   }
 
   .trajectoryMap {
-    flex-basis: 280px;
-    min-height: 240px;
-    max-height: 360px;
+    flex-basis: auto;
+    min-height: 0;
+    max-height: none;
   }
 
   .trajectoryCanvasWrap {
-    flex-basis: 220px;
-    min-height: 190px;
+    flex-basis: auto;
+    min-height: 0;
   }
 }
 
@@ -981,6 +982,11 @@ body[data-connected="false"] #disconnectButton {
 
   .attitudeCanvasWrap {
     margin-top: 0;
+  }
+
+  .trajectoryMap,
+  .trajectoryCanvasWrap {
+    width: 100%;
   }
 }
 
@@ -1007,17 +1013,17 @@ body[data-connected="false"] #disconnectButton {
   }
 
   .attitudeCanvasWrap {
-    min-height: 280px;
+    min-height: 0;
   }
 
   .trajectoryMap {
-    flex-basis: 230px;
-    min-height: 220px;
+    flex-basis: auto;
+    min-height: 0;
   }
 
   .trajectoryCanvasWrap {
-    flex-basis: 180px;
-    min-height: 170px;
+    flex-basis: auto;
+    min-height: 0;
   }
 
   .trajectoryCard .plotHeader,
