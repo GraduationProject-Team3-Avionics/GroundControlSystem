@@ -27,6 +27,7 @@ const rollPlotCanvas = document.querySelector("#rollPlotCanvas");
 const pitchPlotCanvas = document.querySelector("#pitchPlotCanvas");
 const yawPlotCanvas = document.querySelector("#yawPlotCanvas");
 const ekfStatus = document.querySelector("#ekfStatus");
+const clearTrajectoryButton = document.querySelector("#clearTrajectoryButton");
 const trajectoryMapElement = document.querySelector("#trajectoryMap");
 const trajectoryCanvas = document.querySelector("#trajectoryCanvas");
 const trajectoryXValue = document.querySelector("#trajectoryXValue");
@@ -231,6 +232,26 @@ function updateTrajectoryMarkers(point) {
     }).addTo(trajectoryMap);
   } else {
     trajectoryCurrentMarker.setLatLng(point);
+  }
+}
+
+function clearTrajectory() {
+  trajectoryMapPoints = [];
+  trajectoryMapCentered = false;
+  trajectoryPlot.clear();
+
+  if (trajectoryTrack) {
+    trajectoryTrack.setLatLngs([]);
+  }
+
+  if (trajectoryStartMarker) {
+    trajectoryStartMarker.remove();
+    trajectoryStartMarker = null;
+  }
+
+  if (trajectoryCurrentMarker) {
+    trajectoryCurrentMarker.remove();
+    trajectoryCurrentMarker = null;
   }
 }
 
@@ -819,6 +840,10 @@ clearLogButton.addEventListener("click", () => {
   hiddenLogCount += visibleLogs.length;
   visibleLogs = [];
   logOutput.textContent = "";
+});
+
+clearTrajectoryButton.addEventListener("click", () => {
+  clearTrajectory();
 });
 
 themeToggleButton.addEventListener("click", () => {

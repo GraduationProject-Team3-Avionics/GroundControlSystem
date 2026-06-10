@@ -40,6 +40,11 @@ class RealtimeLinePlot {
     this.scheduleDraw();
   }
 
+  clear() {
+    this.samples = [];
+    this.scheduleDraw();
+  }
+
   resize() {
     const rect = this.canvas.getBoundingClientRect();
     const width = Math.max(240, Math.floor(rect.width));

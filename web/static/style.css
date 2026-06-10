@@ -322,6 +322,14 @@ h2 {
   gap: 12px;
 }
 
+.panelHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .commandPanel {
   grid-area: commands;
 }
