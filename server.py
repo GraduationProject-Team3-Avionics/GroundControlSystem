@@ -181,6 +181,7 @@ class SerialBridge:
         self._ekf = {
             "frame": "NED",
             "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "raw_position": {"x": 0.0, "y": 0.0, "z": 0.0},
             "velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
             "position_covariance": {"x": 0.0, "y": 0.0, "z": 0.0},
             "valid": False,
@@ -188,6 +189,8 @@ class SerialBridge:
             "updated_at": 0.0,
             "covariance_updated_at": 0.0,
         }
+        self._ekf_display_origin = None
+        self._ekf_geo_origin = None
         self._gnss_origin = None
         self._gnss = {
             "frame": "NED",
@@ -212,6 +215,7 @@ class SerialBridge:
 
         with self._lock:
             self._close_locked()
+            self._reset_navigation_display_locked()
             self._stop.clear()
             self._serial = serial.Serial(port, baud, timeout=0.1, write_timeout=0.5)
             self._port = port
@@ -316,6 +320,66 @@ class SerialBridge:
         )
         self._mark_changed()
 
+    @staticmethod
+    def _make_geo_origin(lat: float, lon: float, hmsl: float) -> dict:
+        return {
+            "lat": lat,
+            "lon": lon,
+            "hmsl": hmsl,
+            "ecef": llh_to_ecef(lat, lon, hmsl),
+        }
+
+    def _reset_navigation_display_locked(self) -> None:
+        self._ekf_display_origin = None
+        self._ekf_geo_origin = None
+        self._gnss_origin = None
+        self._ekf = {
+            "frame": "NED",
+            "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "raw_position": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "position_covariance": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "valid": False,
+            "covariance_valid": False,
+            "updated_at": 0.0,
+            "covariance_updated_at": 0.0,
+        }
+        self._gnss = {
+            "frame": "NED",
+            "fix_type": 0,
+            "llh": {"lat": 0.0, "lon": 0.0, "hmsl": 0.0},
+            "position": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "accuracy": {"horizontal": 0.0, "vertical": 0.0},
+            "position_covariance": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "relative_altitude": 0.0,
+            "origin": None,
+            "valid": False,
+            "covariance_valid": False,
+            "updated_at": 0.0,
+            "covariance_updated_at": 0.0,
+        }
+
+    def _current_ekf_geo_origin_locked(self) -> Optional[dict]:
+        if self._gnss["valid"]:
+            llh = self._gnss["llh"]
+            return self._make_geo_origin(llh["lat"], llh["lon"], llh["hmsl"])
+
+        if self._gnss_origin is not None:
+            return dict(self._gnss_origin)
+
+        return None
+
+    def _make_ekf_geo_origin_for_current_position_locked(self, lat: float, lon: float, hmsl: float) -> dict:
+        gnss_origin = self._make_geo_origin(lat, lon, hmsl)
+        if not self._ekf["valid"]:
+            return gnss_origin
+
+        position = self._ekf["position"]
+        # GNSS can arrive after EKF has already accumulated local movement.
+        # Anchor the current EKF point to the current GNSS sample to avoid a map jump.
+        aligned = ned_to_llh(-position["x"], -position["y"], -position["z"], gnss_origin)
+        return self._make_geo_origin(aligned["lat"], aligned["lon"], aligned["hmsl"])
+
     def _append_rx_line(self, message: str) -> None:
         attitude_updated = self._update_attitude(message)
         altitude_updated = self._update_altitude(message)
@@ -375,11 +439,22 @@ class SerialBridge:
         if match is None:
             return False
 
-        self._ekf["position"] = {
+        raw_position = {
             "x": float(match.group("pos_n")),
             "y": float(match.group("pos_e")),
             "z": float(match.group("pos_d")),
         }
+        if self._ekf_display_origin is None:
+            self._ekf_display_origin = dict(raw_position)
+            self._ekf_geo_origin = self._current_ekf_geo_origin_locked()
+
+        origin = self._ekf_display_origin
+        self._ekf["position"] = {
+            "x": raw_position["x"] - origin["x"],
+            "y": raw_position["y"] - origin["y"],
+            "z": raw_position["z"] - origin["z"],
+        }
+        self._ekf["raw_position"] = raw_position
         self._ekf["velocity"] = {
             "x": float(match.group("vel_n")),
             "y": float(match.group("vel_e")),
@@ -462,6 +537,8 @@ class SerialBridge:
             "updated_at": now,
             "covariance_updated_at": now,
         }
+        if valid and self._ekf_display_origin is not None and self._ekf_geo_origin is None:
+            self._ekf_geo_origin = self._make_ekf_geo_origin_for_current_position_locked(lat, lon, hmsl)
         self._mark_changed()
         return True
 
@@ -501,13 +578,28 @@ class SerialBridge:
 
     def _ekf_snapshot_locked(self) -> dict:
         geo = None
-        if self._ekf["valid"] and self._gnss_origin is not None:
+        if self._ekf["valid"] and self._ekf_geo_origin is not None:
             position = self._ekf["position"]
-            geo = ned_to_llh(position["x"], position["y"], position["z"], self._gnss_origin)
+            geo = ned_to_llh(position["x"], position["y"], position["z"], self._ekf_geo_origin)
 
         return {
             "frame": self._ekf["frame"],
             "position": dict(self._ekf["position"]),
+            "raw_position": dict(self._ekf["raw_position"]),
+            "display_origin": (
+                dict(self._ekf_display_origin)
+                if self._ekf_display_origin is not None
+                else None
+            ),
+            "geo_origin": (
+                {
+                    "lat": self._ekf_geo_origin["lat"],
+                    "lon": self._ekf_geo_origin["lon"],
+                    "hmsl": self._ekf_geo_origin["hmsl"],
+                }
+                if self._ekf_geo_origin is not None
+                else None
+            ),
             "geo": geo,
             "velocity": dict(self._ekf["velocity"]),
             "position_covariance": dict(self._ekf["position_covariance"]),

@@ -238,6 +238,7 @@ function updateTrajectoryMarkers(point) {
 function clearTrajectory() {
   trajectoryMapPoints = [];
   trajectoryMapCentered = false;
+  lastPlottedEkfAt = null;
   trajectoryPlot.clear();
 
   if (trajectoryTrack) {
@@ -260,7 +261,7 @@ function updateTrajectoryMapFromGnss(gnss) {
     return;
   }
 
-  const origin = gnss.origin || (gnss.valid ? gnss.llh : null);
+  const origin = gnss.valid && gnss.llh ? gnss.llh : gnss.origin;
   if (!origin) {
     return;
   }
@@ -659,6 +660,7 @@ async function connectSerial() {
     method: "POST",
     body: JSON.stringify({ port, baud }),
   });
+  clearTrajectory();
   setConnectedUi(payload.status);
   setMessage("Connected", "ok");
 }
