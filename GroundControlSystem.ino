@@ -64,6 +64,7 @@ constexpr bool PRINT_EKF_COVARIANCE_TELEMETRY = true;
 QueueHandle_t g_commandQueue = nullptr;
 SemaphoreHandle_t g_radioMutex = nullptr;
 SemaphoreHandle_t g_serialMutex = nullptr;
+volatile bool g_commandTxPreemptRequested = false;
 
 // ------------------------------
 // Packet type
@@ -323,6 +324,12 @@ struct GcsCommand
 };
 
 uint8_t g_commandSequence = 0;
+
+bool isDisarmCommand(CommandId commandId)
+{
+  return (commandId == CommandId::Disarm) ||
+         (commandId == CommandId::EmergencyDisarm);
+}
 
 void LockSerial()
 {
@@ -616,6 +623,15 @@ bool enqueueCommand(CommandId commandId,
   if (g_commandQueue == nullptr)
   {
     return false;
+  }
+
+  if (isDisarmCommand(commandId))
+  {
+    g_commandTxPreemptRequested = true;
+    xQueueReset(g_commandQueue);
+    sendToFront = true;
+    repeatCount = EMERGENCY_BURST_REPEAT;
+    gapMs = EMERGENCY_BURST_GAP_MS;
   }
 
   GcsCommand command = {};
@@ -1230,7 +1246,7 @@ void parseSerialLine(const char* line)
   }
   else if (input == "disarm")
   {
-    queued = enqueueCommand(CommandId::Disarm, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
+    queued = enqueueCommand(CommandId::EmergencyDisarm, EMERGENCY_BURST_REPEAT, EMERGENCY_BURST_GAP_MS, true, true);
   }
   else if (input == "hover")
   {
@@ -1366,10 +1382,20 @@ void CommandTxTask(void* argument)
     {
       bool anyOk = false;
       uint8_t lastSequence = 0U;
+      const bool currentIsDisarm = isDisarmCommand(command.commandId);
+      if (currentIsDisarm)
+      {
+        g_commandTxPreemptRequested = false;
+      }
 
       for (uint8_t i = 0U; i < command.repeatCount; ++i)
       {
-        if (xSemaphoreTake(g_radioMutex, pdMS_TO_TICKS(50)) == pdTRUE)
+        if (g_commandTxPreemptRequested && !currentIsDisarm)
+        {
+          break;
+        }
+
+        if (xSemaphoreTake(g_radioMutex, pdMS_TO_TICKS(5)) == pdTRUE)
         {
           const bool ok = sendCommandRaw(command.commandId,
                                          command.param1,
@@ -1395,7 +1421,19 @@ void CommandTxTask(void* argument)
 
         if ((command.gapMs > 0U) && ((i + 1U) < command.repeatCount))
         {
-          vTaskDelay(pdMS_TO_TICKS(command.gapMs));
+          uint16_t waitedMs = 0U;
+          while (waitedMs < command.gapMs)
+          {
+            if (g_commandTxPreemptRequested && !currentIsDisarm)
+            {
+              break;
+            }
+
+            const uint16_t remainingMs = command.gapMs - waitedMs;
+            const uint16_t stepMs = (remainingMs > 2U) ? 2U : remainingMs;
+            vTaskDelay(pdMS_TO_TICKS(stepMs));
+            waitedMs += stepMs;
+          }
         }
       }
 
