@@ -93,6 +93,8 @@ enum class CommandId : uint8_t
   SetHover    = 0x12,
   SetAltHold  = 0x13,
   SetOffboard = 0x14,
+  SetPositionHold = 0x15,
+  SetPositionBodyOffset = 0x16,
 
   EmergencyHover  = 0x20,
   EmergencyLand   = 0x21,
@@ -104,7 +106,8 @@ enum class CommandId : uint8_t
 
   // Hover/EmergencyHover: param1 = base throttle PWM pulse width in microseconds.
   // AltHold: param1 = target altitude in centimeters.
-  SetBaseThrottle = 0x31
+  SetBaseThrottle = 0x31,
+  SetAttitudeTrim = 0x32
 };
 
 enum class ArmState : uint8_t
@@ -116,12 +119,13 @@ enum class ArmState : uint8_t
 enum class FlightMode : uint8_t
 {
   Idle = 0,
-  Hover,
-  AltHold,
-  Offboard,
-  EmergencyHover,
-  EmergencyLand,
-  EmergencyDisarm
+  Hover = 1,
+  AltHold = 2,
+  Offboard = 3,
+  EmergencyHover = 4,
+  EmergencyLand = 5,
+  EmergencyDisarm = 6,
+  PositionHold = 7
 };
 
 enum class EmergencyState : uint8_t
@@ -138,6 +142,8 @@ constexpr uint8_t TargetSystemFlightController = 0x01;
 constexpr uint16_t CommandFlagRequireAck = 1U << 0U;
 constexpr uint16_t CommandFlagRepeat = 1U << 1U;
 constexpr uint16_t CommandFlagAltitudeTargetValid = 1U << 2U;
+
+constexpr int16_t PositionForward10mCm = 1000;
 
 constexpr uint16_t StatusFlagImuValid      = 1U << 0U;
 constexpr uint16_t StatusFlagBaroValid     = 1U << 1U;
@@ -505,11 +511,14 @@ const char* commandIdToString(CommandId id)
     case CommandId::SetHover: return "SetHover";
     case CommandId::SetAltHold: return "SetAltHold";
     case CommandId::SetOffboard: return "SetOffboard";
+    case CommandId::SetPositionHold: return "SetPositionHold";
+    case CommandId::SetPositionBodyOffset: return "SetPositionBodyOffset";
     case CommandId::EmergencyHover: return "EmergencyHover";
     case CommandId::EmergencyLand: return "EmergencyLand";
     case CommandId::EmergencyDisarm: return "EmergencyDisarm";
     case CommandId::MotorTest: return "MotorTest";
     case CommandId::SetBaseThrottle: return "SetBaseThrottle";
+    case CommandId::SetAttitudeTrim: return "SetAttitudeTrim";
     default: return "None";
   }
 }
@@ -535,6 +544,7 @@ const char* flightModeToString(uint8_t mode)
     case FlightMode::EmergencyHover: return "EmergencyHover";
     case FlightMode::EmergencyLand: return "EmergencyLand";
     case FlightMode::EmergencyDisarm: return "EmergencyDisarm";
+    case FlightMode::PositionHold: return "PositionHold";
     default: return "Unknown";
   }
 }
@@ -549,8 +559,11 @@ void printHelp()
   Serial.println("arm       : arm drone, burst TX");
   Serial.println("disarm    : disarm drone, burst TX");
   Serial.println("hover     : set hover mode, burst TX");
+  Serial.println("zero      : latch current roll/pitch as FC attitude trim");
   Serial.println("althold   : set altitude hold mode at current altitude, burst TX");
   Serial.println("althold CM: set altitude hold mode with target altitude in cm");
+  Serial.println("poshold   : set position hold mode at current N/E/altitude, burst TX");
+  Serial.println("forward10 : move PosHold target 10 m forward, single TX");
   Serial.println("offboard  : set offboard mode, burst TX");
   Serial.println("ehover    : emergency hover, burst TX");
   Serial.println("eland     : emergency land, burst TX");
@@ -1139,6 +1152,17 @@ bool enqueueAltHoldTargetCommand(int16_t targetAltitudeCm)
                         targetAltitudeCm);
 }
 
+bool enqueuePositionForward10mCommand()
+{
+  return enqueueCommand(CommandId::SetPositionBodyOffset,
+                        1,
+                        0,
+                        true,
+                        true,
+                        PositionForward10mCm,
+                        0);
+}
+
 bool enqueueMotorTestCommand(int basePwm)
 {
   const int clampedBasePwm = clampMotorPwm(basePwm);
@@ -1252,9 +1276,25 @@ void parseSerialLine(const char* line)
   {
     queued = enqueueCommand(CommandId::SetHover, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
   }
+  else if (input == "zero")
+  {
+    queued = enqueueCommand(CommandId::SetAttitudeTrim, 1, 0, true, true);
+  }
   else if (input == "althold")
   {
     queued = enqueueAltHoldCommand(false, 0);
+  }
+  else if ((input == "poshold") || (input == "positionhold"))
+  {
+    queued = enqueueCommand(CommandId::SetPositionHold, COMMAND_BURST_REPEAT, COMMAND_BURST_GAP_MS, true, true);
+  }
+  else if ((input == "forward10") || (input == "fwd10"))
+  {
+    queued = enqueuePositionForward10mCommand();
+
+    LockSerial();
+    Serial.println("[CMD] SetPositionBodyOffset forward_cm=1000 right_cm=0");
+    UnlockSerial();
   }
   else if (parseAltitudeCmCommand(input, "althold", &parsedAltitudeCm))
   {
